@@ -1,4 +1,7 @@
--- Toggle repeat mode
+-- loop_media_item.lua
+--
+-- Automatically set loop points to selected region when loop
+-- mode is activated.
 
 -- =====================================================================
 --  -1 == query, 0=clear, 1=set, >1=toggle . returns new value
