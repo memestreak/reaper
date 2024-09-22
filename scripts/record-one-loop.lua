@@ -4,10 +4,11 @@
 -- has been executed.
 --
 -- Prerequisites:
---   * A region has been selected.
---   * Record mode is set to auto punch
+--   * A region has been selected, somewhere ahead of the play cursor.
 --   * In Reaper settings, loop recording is set to discard non-complete takes,
 --     where completion threshold is > 50%.
+--   * Record mode is set to auto punch (optional)
+
 
 local DIALOG_TYPE_OK = 0
 local COMMAND_TRANPORT_PLAY = 1007
@@ -24,7 +25,7 @@ local PLAY_STATE_RECORDING = 4
 
 local LOOP_MODE_ON = 1
 
-local playback_reached_marker = false 
+local playback_reached_marker = false
 local a_bit_after_loop_start  -- Global
 
 
@@ -60,7 +61,7 @@ end
 -- Switches from record to play transport once we've passed the specified region
 -- twice.
 -- -----------------------------------------------------------------------------
-function stopRecordingAfterOneLoop() 
+function stopRecordingAfterOneLoop()
   -- Exit early if we can.
   local play_state = reaper.GetPlayState()
   if play_state ~= PLAY_STATE_RECORDING and
@@ -73,13 +74,13 @@ function stopRecordingAfterOneLoop()
   if playback_reached_marker and play_position < a_bit_after_loop_start then
      -- Switch from record to play mode, as we're not in our first loop.
      reaper.Main_OnCommand(COMMAND_TRANPORT_PLAY, EXEC_MODE_NORMAL)
-    return  
+    return
   elseif play_position >= a_bit_after_loop_start then
     playback_reached_marker = true
-  end  
+  end
 
-  reaper.defer(stopRecordingAfterOneLoop)  
-end  
+  reaper.defer(stopRecordingAfterOneLoop)
+end
 
 
 -- -----------------------------------------------------------------------------
@@ -112,8 +113,9 @@ if play_position > loop_start then
    return
 end
 
--- Verify loop mode is enabled.
-reaper.GetSetRepeat(1)
+
+reaper.GetSetRepeat(1)  -- Enable loop mode it it's not already enabled.
+
 a_bit_after_loop_start = getPosInLoopRegion(0.05)
 reaper.Main_OnCommand(COMMAND_TRANPORT_RECORD, EXEC_MODE_NORMAL)
 stopRecordingAfterOneLoop()
