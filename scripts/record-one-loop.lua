@@ -90,7 +90,6 @@ function regionSelectionExists(start_pos, end_pos)
    return start_pos ~= end_pos
 end
 
-
 loop_start, loop_end = getLoopRegion()
 
 -- Verify that a time selection exists.
@@ -102,10 +101,9 @@ if not regionSelectionExists(loop_start, loop_end) then
    return
 end
 
-local play_position = reaper.GetPlayPosition()
-
 -- Verify that the region is ahead of the play cursor.
-if play_position > loop_start then
+local cursor_position = reaper.GetCursorPosition()
+if cursor_position > loop_start then
    reaper.ShowMessageBox(
       "This action expected the time selection to be ahead of the play cursor.",
       "Time selection behind cursor.",
@@ -113,11 +111,8 @@ if play_position > loop_start then
    return
 end
 
-
 reaper.GetSetRepeat(1)  -- Enable loop mode it it's not already enabled.
 
 a_bit_after_loop_start = getPosInLoopRegion(0.05)
 reaper.Main_OnCommand(COMMAND_TRANPORT_RECORD, EXEC_MODE_NORMAL)
 stopRecordingAfterOneLoop()
-
-
