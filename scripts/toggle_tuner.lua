@@ -5,6 +5,12 @@
 TUNER_FX_NAME = "ReaTune"
 MESSAGE_BOX_OK = 0
 
+-- TrackFX_Show showFlag values:
+--   2 = hide floating window
+--   3 = show floating window
+SHOW_FLAG_HIDE_FLOATING = 2
+SHOW_FLAG_SHOW_FLOATING = 3
+
 -- Get the track and effect index for the specific effect name.
 -- returns: boolean retval, MediaTrack media_track, integer fx_index
 function FindFirstFxInstance(fx_name)
@@ -27,8 +33,16 @@ end
 local retval, media_track, fx_index = FindFirstFxInstance(TUNER_FX_NAME)
 
 if retval then
-  local is_bypassed = reaper.TrackFX_GetEnabled(media_track, fx_index)
-  reaper.TrackFX_SetEnabled(media_track, fx_index, not is_bypassed)
+  -- TrackFX_GetEnabled returns true when the FX is enabled (not bypassed).
+  local is_enabled = reaper.TrackFX_GetEnabled(media_track, fx_index)
+  local enable = not is_enabled
+  reaper.TrackFX_SetEnabled(media_track, fx_index, enable)
+
+  -- Pop out the floating window when enabling, hide it when bypassing.
+  local show_flag = enable and SHOW_FLAG_SHOW_FLOATING
+                           or SHOW_FLAG_HIDE_FLOATING
+  reaper.TrackFX_Show(media_track, fx_index, show_flag)
+
   reaper.UpdateArrange()
 else
   reaper.ShowMessageBox("Not found: " .. TUNER_FX_NAME, "Not found", MESSAGE_BOX_OK)
