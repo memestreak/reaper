@@ -2,12 +2,15 @@
 --
 -- A "get me out of here" action, meant for a single keybinding (CTRL-g).
 --
---   * If anything is selected -- time selection, loop points, tracks,
---     items or envelope points -- clear the selection and stop.
---   * If nothing is selected, zoom out to show the whole project.
+--   * If any object is selected -- tracks, items or envelope points --
+--     clear those and stop, leaving any time selection alone.
+--   * Otherwise, if a time selection or loop points are set, clear those
+--     and stop.
+--   * If nothing at all is selected, zoom out to show the whole project.
 --
 -- Repeated presses therefore peel back state one layer at a time: the
--- first press escapes the selection, the next zooms out.
+-- first press drops the object selection, the second drops time, the
+-- third zooms out.
 
 local ACTIVE_PROJECT = 0  -- 0 == active project
 
@@ -82,17 +85,24 @@ function AnyEnvelopePointIsSelected()
   return false
 end
 
--- Returns true if the project holds any selection worth escaping from.
-function AnythingIsSelected()
-  return TimeRangeIsSet(RANGE_TIME_SELECTION)
-      or TimeRangeIsSet(RANGE_LOOP_POINTS)
-      or reaper.CountSelectedTracks(ACTIVE_PROJECT) > 0
+-- Returns true if any object -- track, item or envelope point -- is
+-- selected. These are exactly what COMMAND_UNSELECT_ALL clears.
+function AnyObjectIsSelected()
+  return reaper.CountSelectedTracks(ACTIVE_PROJECT) > 0
       or reaper.CountSelectedMediaItems(ACTIVE_PROJECT) > 0
       or AnyEnvelopePointIsSelected()
 end
 
-if AnythingIsSelected() then
+-- Returns true if a time selection or loop points are set. These are
+-- exactly what COMMAND_REMOVE_TIME_SELECTION clears.
+function AnyTimeRangeIsSet()
+  return TimeRangeIsSet(RANGE_TIME_SELECTION)
+      or TimeRangeIsSet(RANGE_LOOP_POINTS)
+end
+
+if AnyObjectIsSelected() then
   reaper.Main_OnCommand(COMMAND_UNSELECT_ALL, EXEC_MODE_NORMAL)
+elseif AnyTimeRangeIsSet() then
   reaper.Main_OnCommand(COMMAND_REMOVE_TIME_SELECTION, EXEC_MODE_NORMAL)
 else
   reaper.Main_OnCommand(COMMAND_ZOOM_OUT_PROJECT, EXEC_MODE_NORMAL)
