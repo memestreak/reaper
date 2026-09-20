@@ -7,12 +7,18 @@
 --   * A region has been selected, somewhere ahead of the play cursor.
 --   * In Reaper settings, loop recording is set to discard non-complete takes,
 --     where completion threshold is > 50%.
---   * Record mode is set to auto punch (optional)
+--   * Record mode is set to time selection auto-punch. This script enables it
+--     if it isn't already on.
 
 
 local DIALOG_TYPE_OK = 0
 local COMMAND_TRANPORT_PLAY = 1007
 local COMMAND_TRANPORT_RECORD = 1013
+
+-- Record: Set record mode to time selection auto-punch
+local COMMAND_RECORD_MODE_AUTO_PUNCH = 40076
+
+local TOGGLE_STATE_ON = 1
 
 -- These are guesses based on chatgpt.
 local EXEC_MODE_NORMAL = 0
@@ -111,7 +117,15 @@ if cursor_position > loop_start then
    return
 end
 
-reaper.GetSetRepeat(1)  -- Enable loop mode it it's not already enabled.
+-- Enable repeat if it isn't already on. GetSetRepeat(1) sets rather than
+-- toggles, so this is a no-op when repeat is already enabled.
+reaper.GetSetRepeat(1)
+
+-- Enable time selection auto-punch record mode if it isn't already on.
+if reaper.GetToggleCommandState(COMMAND_RECORD_MODE_AUTO_PUNCH) ~= TOGGLE_STATE_ON
+then
+  reaper.Main_OnCommand(COMMAND_RECORD_MODE_AUTO_PUNCH, EXEC_MODE_NORMAL)
+end
 
 a_bit_after_loop_start = getPosInLoopRegion(0.05)
 reaper.Main_OnCommand(COMMAND_TRANPORT_RECORD, EXEC_MODE_NORMAL)
