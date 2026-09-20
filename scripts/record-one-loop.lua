@@ -4,7 +4,8 @@
 -- has been executed.
 --
 -- Prerequisites:
---   * A region has been selected, somewhere ahead of the play cursor.
+--   * A region has been selected, somewhere ahead of the play cursor. If no
+--     region is selected, this script creates one ahead of the cursor.
 --   * In Reaper settings, loop recording is set to discard non-complete takes,
 --     where completion threshold is > 50%.
 --   * Record mode is set to time selection auto-punch. This script enables it
@@ -30,6 +31,11 @@ local PLAY_STATE_PAUSED = 2
 local PLAY_STATE_RECORDING = 4
 
 local LOOP_MODE_ON = 1
+
+-- Shape of the time selection created when none exists: how far ahead of the
+-- cursor it starts, and how long it runs.
+local LEAD_IN_MEASURES = 1
+local SELECTION_LENGTH_MEASURES = 4
 
 local playback_reached_marker = false
 local a_bit_after_loop_start  -- Global
@@ -90,6 +96,34 @@ end
 
 
 -- -----------------------------------------------------------------------------
+-- Creates a time selection SELECTION_LENGTH_MEASURES long, beginning
+-- LEAD_IN_MEASURES after the measure holding the cursor. Both edges land on
+-- measure boundaries. Returns the new start and end positions.
+-- -----------------------------------------------------------------------------
+function createLoopRegionAheadOfCursor(cursor_position)
+  local _, cursor_measure = reaper.TimeMap2_timeToBeats(
+      0,                 -- proj. 0 is the active project.
+      cursor_position)
+
+  -- Passing a measure makes the second argument beats within that measure, so
+  -- 0 beats is the downbeat.
+  local start_measure = cursor_measure + LEAD_IN_MEASURES
+  local start_pos = reaper.TimeMap2_beatsToTime(0, 0, start_measure)
+  local end_pos = reaper.TimeMap2_beatsToTime(
+      0, 0, start_measure + SELECTION_LENGTH_MEASURES)
+
+  reaper.GetSet_LoopTimeRange(
+      true,       -- isSet
+      true,       -- isLoop
+      start_pos,  -- startOut
+      end_pos,    -- endOut
+      false)      -- allowautoseek
+
+  return start_pos, end_pos
+end
+
+
+-- -----------------------------------------------------------------------------
 -- Returns true if a time/loop selection exists.
 -- -----------------------------------------------------------------------------
 function regionSelectionExists(start_pos, end_pos)
@@ -97,18 +131,14 @@ function regionSelectionExists(start_pos, end_pos)
 end
 
 loop_start, loop_end = getLoopRegion()
+local cursor_position = reaper.GetCursorPosition()
 
--- Verify that a time selection exists.
+-- Create a time selection ahead of the cursor if there isn't one already.
 if not regionSelectionExists(loop_start, loop_end) then
-   reaper.ShowMessageBox(
-      "This action expected a region to be selected, but none was found.",
-      "No loop region found",
-      DIALOG_TYPE_OK)
-   return
+   loop_start, loop_end = createLoopRegionAheadOfCursor(cursor_position)
 end
 
 -- Verify that the region is ahead of the play cursor.
-local cursor_position = reaper.GetCursorPosition()
 if cursor_position > loop_start then
    reaper.ShowMessageBox(
       "This action expected the time selection to be ahead of the play cursor.",
