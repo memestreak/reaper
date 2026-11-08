@@ -12,7 +12,13 @@
 --   * The ReaImGui extension (install it with ReaPack).
 --   * macOS: modification times come from the BSD `stat` command.
 --
--- Keys: Escape, or clicking anywhere else, closes the list.
+-- Typing filters the list: a row is shown if every word typed appears in
+-- its file or folder name, ignoring case.
+--
+-- Keys:
+--   * Up / Down, or Control-P / Control-N, move the highlight; Enter
+--     opens the highlighted project.
+--   * Escape, or clicking anywhere else, closes the list.
 
 local RECENT_SECTION_HEADER = "[Recent]"
 
@@ -151,9 +157,10 @@ function MaxTextWidth(ctx, strings)
   return widest
 end
 
--- Draw the projects table.
--- returns: the path of the clicked project, or nil.
-function DrawTable(ctx, rows)
+-- Work out the table's size from all the rows, so that it keeps the same
+-- size while the filter hides some of them.
+-- returns: array of column widths, table width, table height
+function TableLayout(ctx, rows)
   local files, folders, dates = { "Project" }, { "Folder" }, { "Modified" }
   for i, row in ipairs(rows) do
     files[i + 1] = row.file
@@ -166,8 +173,7 @@ function DrawTable(ctx, rows)
     MaxTextWidth(ctx, dates),
   }
 
-  -- Size the table to fit the columns and MAX_VISIBLE_ROWS rows, plus the
-  -- header row.
+  -- Fit the columns and MAX_VISIBLE_ROWS rows, plus the header row.
   local pad_x, pad_y = ImGui.GetStyleVar(ctx, ImGui.StyleVar_CellPadding)
   local scrollbar = ImGui.GetStyleVar(ctx, ImGui.StyleVar_ScrollbarSize)
   local width = scrollbar
@@ -178,6 +184,36 @@ function DrawTable(ctx, rows)
   local visible_rows = math.min(#rows, MAX_VISIBLE_ROWS) + 1
   local height = visible_rows * row_height
 
+  return column_widths, width, height
+end
+
+-- Returns true if every whitespace-separated word of the filter appears,
+-- ignoring case, in the row's file or folder name.
+function MatchesFilter(row, filter)
+  local haystack = (row.file .. " " .. row.folder):lower()
+  for word in filter:lower():gmatch("%S+") do
+    if not haystack:find(word, 1, true) then  -- Plain text, not a pattern.
+      return false
+    end
+  end
+  return true
+end
+
+-- returns: the rows matching the filter, in their original order.
+function FilterRows(rows, filter)
+  local matches = {}
+  for _, row in ipairs(rows) do
+    if MatchesFilter(row, filter) then
+      matches[#matches + 1] = row
+    end
+  end
+  return matches
+end
+
+-- Draw the projects table, highlighting rows[highlighted].
+-- returns: the path of the clicked project, or nil.
+function DrawTable(ctx, rows, layout, highlighted, scroll_to_highlighted)
+  local column_widths, width, height = table.unpack(layout)
   local clicked_path = nil
 
   if ImGui.BeginTable(ctx, "projects", 3, TABLE_FLAGS, width, height) then
@@ -194,11 +230,16 @@ function DrawTable(ctx, rows)
       ImGui.TableNextRow(ctx)
 
       ImGui.TableNextColumn(ctx)
-      -- "##<i>" gives each row a unique ID without changing its label.
-      if ImGui.Selectable(ctx, row.file .. "##" .. i, false,
+      -- "##<path>" gives each row a unique ID without changing its label.
+      if ImGui.Selectable(ctx, row.file .. "##" .. row.path,
+                          i == highlighted,
                           ImGui.SelectableFlags_SpanAllColumns) then
         clicked_path = row.path
       end
+      if i == highlighted and scroll_to_highlighted then
+        ImGui.SetScrollHereY(ctx)
+      end
+
       ImGui.TableNextColumn(ctx)
       ImGui.Text(ctx, row.folder)
       ImGui.TableNextColumn(ctx)
@@ -211,6 +252,36 @@ function DrawTable(ctx, rows)
   return clicked_path
 end
 
+-- The modifier for the physical Control key. On macOS ReaImGui swaps the
+-- two: Mod_Ctrl is the Command key and Mod_Super is Control.
+local IS_MACOS = reaper.GetOS():match("^OSX") or reaper.GetOS():match("^macOS")
+local CONTROL_KEY_MOD = IS_MACOS and ImGui.Mod_Super or ImGui.Mod_Ctrl
+
+-- Returns true if Control+key, with no other modifier, was pressed this
+-- frame.
+function ControlKeyPressed(ctx, key)
+  return ImGui.GetKeyMods(ctx) == CONTROL_KEY_MOD
+      and ImGui.IsKeyPressed(ctx, key)
+end
+
+-- Returns true if Down or Control-N was pressed this frame.
+function NextPressed(ctx)
+  return ImGui.IsKeyPressed(ctx, ImGui.Key_DownArrow)
+      or ControlKeyPressed(ctx, ImGui.Key_N)
+end
+
+-- Returns true if Up or Control-P was pressed this frame.
+function PreviousPressed(ctx)
+  return ImGui.IsKeyPressed(ctx, ImGui.Key_UpArrow)
+      or ControlKeyPressed(ctx, ImGui.Key_P)
+end
+
+-- Returns true if either Enter key was pressed this frame.
+function EnterPressed(ctx)
+  return ImGui.IsKeyPressed(ctx, ImGui.Key_Enter)
+      or ImGui.IsKeyPressed(ctx, ImGui.Key_KeypadEnter)
+end
+
 local recent = ReadRecentProjects()
 if #recent == 0 then
   return
@@ -221,7 +292,9 @@ if #rows == 0 then
   return
 end
 
-local ctx = ImGui.CreateContext("Recent Projects")
+-- Keyboard navigation is left off, so the arrow keys stay with the filter
+-- box instead of moving focus between widgets; this script handles them.
+local ctx = ImGui.CreateContext("Recent Projects", ImGui.ConfigFlags_None)
 
 -- SetNextWindowPos pivot: (0.5, 0.5) places the window's center, rather
 -- than its top-left corner, at the given position.
@@ -229,6 +302,8 @@ local PIVOT_CENTER = 0.5
 
 local is_first_frame = true
 local has_had_focus = false
+local filter = ""
+local highlighted = 1  -- Index into the filtered rows.
 
 -- Open the project in a new tab, then let the script end.
 function OpenProjectInNewTab(path)
@@ -250,6 +325,45 @@ function CloseDialogThenOpen(path)
   end)
 end
 
+-- Draw the filter box and the table, and handle the keyboard.
+-- returns: the path of the project to open, or nil.
+function DrawContents()
+  local layout = { TableLayout(ctx, rows) }
+  local table_width = layout[2]
+
+  -- Keep typing going to the filter box, unless the mouse is busy with
+  -- another widget (a row or the scrollbar).
+  if not ImGui.IsAnyItemActive(ctx) then
+    ImGui.SetKeyboardFocusHere(ctx)
+  end
+  ImGui.SetNextItemWidth(ctx, table_width)
+  local changed
+  changed, filter = ImGui.InputTextWithHint(
+      ctx, "##filter", "Type to filter", filter)
+  if changed then
+    highlighted = 1
+  end
+
+  local shown_rows = FilterRows(rows, filter)
+
+  local scroll_to_highlighted = false
+  if NextPressed(ctx) then
+    highlighted = math.min(highlighted + 1, #shown_rows)
+    scroll_to_highlighted = true
+  elseif PreviousPressed(ctx) then
+    highlighted = math.max(highlighted - 1, 1)
+    scroll_to_highlighted = true
+  end
+
+  local clicked_path = DrawTable(ctx, shown_rows, layout, highlighted,
+                                 scroll_to_highlighted)
+
+  if EnterPressed(ctx) and shown_rows[highlighted] then
+    return shown_rows[highlighted].path
+  end
+  return clicked_path
+end
+
 function Loop()
   -- In ReaImGui the main viewport is REAPER's main window. Re-center every
   -- frame, since the window's size isn't known until it has been drawn.
@@ -264,11 +378,11 @@ function Loop()
   end
 
   local keep_open = true
-  local clicked_path = nil
+  local chosen_path = nil
 
   local visible = ImGui.Begin(ctx, "Recent Projects", nil, WINDOW_FLAGS)
   if visible then
-    clicked_path = DrawTable(ctx, rows)
+    chosen_path = DrawContents()
 
     -- Behave like a menu: close on Escape or when focus moves elsewhere.
     local is_focused = ImGui.IsWindowFocused(
@@ -284,8 +398,8 @@ function Loop()
     ImGui.End(ctx)
   end
 
-  if clicked_path then
-    CloseDialogThenOpen(clicked_path)
+  if chosen_path then
+    CloseDialogThenOpen(chosen_path)
   elseif keep_open then
     reaper.defer(Loop)
   end
