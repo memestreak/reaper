@@ -19,6 +19,7 @@
 
 local rules_module = require("lib.rules")
 local settings = require("lib.settings")
+local sws_switches = require("lib.sws_switches")
 local prefs = require("lib.prefs")
 local match = require("lib.match")
 local apply = require("lib.apply")
@@ -133,6 +134,7 @@ function M.run(ImGui)
     recent = read_recent(),
     counts = {}, coloured = { track = 0, marker = 0, region = 0 },
     project_count = nil, next_count_check = 0, next_file_check = 0,
+    sws_on = {}, next_sws_check = 0,  -- SWS's own switches, read once a second
   }
 
   -- Saving -----------------------------------------------------------------
@@ -176,6 +178,12 @@ function M.run(ImGui)
     ui.project_count = count
     ui.next_count_check = now + COUNT_CHECK_SECONDS
     ui.counts, ui.coloured = model_module.match_counts(model.doc, read_project())
+  end
+
+  local function check_sws(now)
+    if now < ui.next_sws_check then return end
+    ui.next_sws_check = now + COUNT_CHECK_SECONDS
+    ui.sws_on = sws_switches.read()
   end
 
   -- Header -----------------------------------------------------------------
@@ -448,6 +456,17 @@ function M.run(ImGui)
       ImGui.SameLine(ctx)
       ImGui.TextColored(ctx, W.WARN, "Engine is off: rules apply only when it runs.")
     end
+    -- SWS doing the same job undoes ours (and the other way round).
+    local switches, clashes = settings.read_switches(), {}
+    for _, switch in ipairs(sws_switches.LIST) do
+      if switches[switch.key] and ui.sws_on[switch.key] then clashes[#clashes + 1] = switch.label end
+    end
+    if #clashes > 0 then
+      ImGui.SameLine(ctx)
+      ImGui.TextColored(ctx, W.WARN, "SWS Auto Color is also on.")
+      ImGui.SetItemTooltip(ctx, "On in SWS too: " .. table.concat(clashes, ", ")
+          .. ".\nTurn them off in Settings › SWS.")
+    end
   end
 
   -- Keyboard ---------------------------------------------------------------
@@ -497,7 +516,7 @@ function M.run(ImGui)
     if request == "palettes" then palettes_dialog.open(ImGui, ctx) end
     if request == "icons" then ImGui.OpenPopup(ctx, "Icons##browser") end
 
-    settings_dialog.draw(ImGui, ctx)
+    settings_dialog.draw(ImGui, ctx, { rules = model.doc.rules, edit = edit })
     palettes_dialog.draw(ImGui, ctx, {
       palettes = model.doc.palettes,
       in_use = model_module.colours_in_use(model.doc),
@@ -525,6 +544,7 @@ function M.run(ImGui)
     local now = reaper.time_precise()
     check_file(now)
     check_counts(now)
+    check_sws(now)
     icons.new_frame()
     local thumb = prefs.read("appearance").thumb_size
 

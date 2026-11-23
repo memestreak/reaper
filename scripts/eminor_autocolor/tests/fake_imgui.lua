@@ -132,7 +132,10 @@ function M.new()
     ArrowButton = take_press, ImageButton = take_press,
     Selectable = function(args) local p = take_press(args) return p, p or args[3] end,
     MenuItem = function(args) local p = take_press(args) return p, args[4] end,
-    Checkbox = function(args) return false, args[3] end,
+    Checkbox = function(args)
+      if take_press(args) then return true, not args[3] end
+      return false, args[3]
+    end,
     InputText = function(args) return false, args[3] end,
     InputTextWithHint = function(args) return false, args[4] end,
     InputInt = function(args) return false, args[3] end,

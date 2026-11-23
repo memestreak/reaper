@@ -157,6 +157,29 @@ function M.install(specs, marker_specs, options)
   end
   function fake.UpdateTimeline() end
 
+  -- SWS's actions: fake.sws holds named command -> toggle state (0/1) when
+  -- a test installs SWS; otherwise SWS is missing.
+  fake.sws = nil
+  fake.commands_run = {}
+  local id_of, name_of, next_id = {}, {}, 50000
+  function fake.NamedCommandLookup(name)
+    if not (fake.sws and fake.sws[name]) then return 0 end
+    if not id_of[name] then
+      id_of[name], name_of[next_id] = next_id, name
+      next_id = next_id + 1
+    end
+    return id_of[name]
+  end
+  function fake.GetToggleCommandState(id)
+    local name = name_of[id]
+    return name and fake.sws[name] or -1
+  end
+  function fake.Main_OnCommand(id, flag)
+    local name = assert(name_of[id], "unknown command " .. tostring(id))
+    fake.commands_run[#fake.commands_run + 1] = name
+    fake.sws[name] = 1 - fake.sws[name]
+  end
+
   function fake.ColorToNative(r, g, b) return (r << 16) | (g << 8) | b end
   function fake.PreventUIRefresh() end
   function fake.TrackList_AdjustWindows() end

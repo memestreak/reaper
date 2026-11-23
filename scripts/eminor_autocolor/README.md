@@ -4,9 +4,10 @@ A replacement for SWS Auto Color/Icon/Layout, written as Lua ReaScripts.
 It colours tracks, markers and regions, and sets track icons and layouts,
 by rules you set. It leaves changes you make by hand alone.
 
-Status: **phase 3**. Everything SWS Auto Color/Icon/Layout does works,
-and rules are edited in the editor window. Import from SWS inside the
-editor and switching SWS off come in phase 4; see the plan doc.
+Status: **phase 4**. Everything SWS Auto Color/Icon/Layout does works,
+rules are edited in the editor window, and Settings › SWS imports SWS's
+rules and switches SWS's own Auto Color off. Polish comes in phase 5;
+see the plan doc.
 
 ## Actions
 
@@ -57,6 +58,13 @@ The pills along the top are the same five switches as the toggle
 actions. Settings holds the engine's fallback check interval, the icon
 thumbnail size, and "Start the engine with REAPER", which adds or removes
 one line in `Scripts/__startup.lua`.
+
+Settings › SWS has SWS's own five Auto Color switches (leave them off:
+SWS and this script would undo each other's colours) and **Import rules
+from SWS…**, which adds SWS's rules after yours (leaving out ones with a
+type and filter you already have) or replaces yours. The import changes
+your rules at once, and Undo in the editor takes it back. The footer
+warns while SWS is switched on for something this script also does.
 
 ## Rules
 

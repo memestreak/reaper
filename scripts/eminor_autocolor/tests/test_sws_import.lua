@@ -72,4 +72,38 @@ AutoColor 3=0 x -6 "" "Wide" "(hide)"
   assert(raw[3].colour.mode == "ignore" and raw[3].tcp_layout == "Wide" and raw[3].mcp_layout == "(hide)")
 end
 
+function T.convert_leaves_out_the_placeholder()
+  local list, problems = sws_import.convert(INI)
+  assert(#list == 13 and #problems == 0)
+  local counts = sws_import.count(list)
+  assert(counts.track == 5 and counts.region == 8 and counts.marker == 0)
+end
+
+function T.merge_adds_only_rules_you_dont_have()
+  local imported = sws_import.convert(INI)
+  local mine = {
+    { id = "a", target = "track", filter = "Guitar", colour = { mode = "none" } },
+    { id = "b", target = "marker", filter = "verse", colour = { mode = "none" } },
+  }
+  local list, skipped = sws_import.merge(mine, imported, "add")
+  -- "guitar" is already a track rule (case doesn't matter); the marker
+  -- rule "verse" doesn't stop the region rule "verse".
+  assert(skipped == 1, skipped)
+  assert(#list == 2 + 12)
+  assert(list[1] == mine[1] and list[2] == mine[2])
+  assert(list[3].filter == "backing")
+
+  local replaced, none_skipped = sws_import.merge(mine, imported, "replace")
+  assert(#replaced == 13 and none_skipped == 0 and replaced[1].filter == "backing")
+end
+
+function T.merge_leaves_out_repeats_within_the_import()
+  local imported = {
+    { target = "track", filter = "bass", colour = { mode = "none" } },
+    { target = "track", filter = "BASS", colour = { mode = "none" } },
+  }
+  local list, skipped = sws_import.merge({}, imported, "add")
+  assert(#list == 1 and skipped == 1)
+end
+
 return T

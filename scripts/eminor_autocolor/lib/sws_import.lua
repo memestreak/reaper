@@ -12,6 +12,7 @@
 -- The number after "AutoColor" is the priority (1 = top).
 
 local colour = require("lib.colour")
+local rules_module = require("lib.rules")
 
 local M = {}
 
@@ -128,6 +129,61 @@ end
 function M.is_unused_placeholder(rule)
   return rule.filter == "(name)" and rule.colour.mode == "none"
       and rule.icon == "" and rule.tcp_layout == "" and rule.mcp_layout == ""
+end
+
+-- Turns the ini text into checked rules, ready for the rules file:
+-- SWS's unused placeholder is left out. Returns rules (without ids) and a
+-- list of problems, as messages.
+function M.convert(text, from_native)
+  local raw_rules, _, problems = M.parse(text, from_native)
+  local clean = {}
+  for i, raw in ipairs(raw_rules) do
+    local rule, err = rules_module.check_rule(raw)
+    if not rule then
+      problems[#problems + 1] = "SWS rule " .. i .. " not imported: " .. err
+    elseif not M.is_unused_placeholder(rule) then
+      clean[#clean + 1] = rule
+    end
+  end
+  return clean, problems
+end
+
+local function same_rule_key(rule)
+  return rule.target .. "\0" .. rule.filter:lower()
+end
+
+-- What importing would do. `how` is "add" (add the imported rules after
+-- yours, leaving out any whose type and filter you already have) or
+-- "replace" (your rules are replaced). Returns the new rule list and the
+-- number of imported rules left out because you already had them.
+function M.merge(existing, imported, how)
+  if how == "replace" then
+    local list = {}
+    for i, rule in ipairs(imported) do list[i] = rule end
+    return list, 0
+  end
+  local have, list = {}, {}
+  for i, rule in ipairs(existing) do
+    list[i] = rule
+    have[same_rule_key(rule)] = true
+  end
+  local skipped = 0
+  for _, rule in ipairs(imported) do
+    if have[same_rule_key(rule)] then
+      skipped = skipped + 1
+    else
+      list[#list + 1] = rule
+      have[same_rule_key(rule)] = true
+    end
+  end
+  return list, skipped
+end
+
+-- Counts rules by target: { track = n, region = n, marker = n }.
+function M.count(rules)
+  local counts = { track = 0, region = 0, marker = 0 }
+  for _, rule in ipairs(rules) do counts[rule.target] = counts[rule.target] + 1 end
+  return counts
 end
 
 return M
