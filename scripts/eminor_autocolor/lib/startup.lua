@@ -67,6 +67,25 @@ function M.is_enabled()
   return M.has_line(read(M.file_path()))
 end
 
+-- The engine action's named command ID ("RS..."), found in the text of
+-- reaper-kb.ini, where REAPER lists every loaded script:
+--   SCR 4 0 RS1a2b... "Custom: eminor_autocolor_engine.lua" "/path/eminor_autocolor_engine.lua"
+function M.engine_command_in_keymap(text)
+  for line in (text or ""):gmatch("[^\r\n]+") do
+    if line:find("^SCR ") and line:find("eminor_autocolor_engine.lua", 1, true) then
+      local id = line:match("^SCR %S+ %S+ (%S+)")
+      if id then return (id:gsub("^_", "")) end
+    end
+  end
+  return nil
+end
+
+-- Finds the engine's command ID even if the engine has never run.
+function M.find_engine_command()
+  local sep = package.config:sub(1, 1)
+  return M.engine_command_in_keymap(read(reaper.GetResourcePath() .. sep .. "reaper-kb.ini"))
+end
+
 -- Adds or removes the line. Returns true, or false and a message.
 function M.set_enabled(on, named_command)
   local path = M.file_path()
@@ -74,7 +93,8 @@ function M.set_enabled(on, named_command)
   local new_text
   if on then
     if not named_command then
-      return false, "Run the engine action once first, so its command ID is known."
+      return false, "Couldn't find the engine action in the Action List. Load "
+          .. "eminor_autocolor_engine.lua there (New action › Load ReaScript), then try again."
     end
     new_text = M.add_line(text, named_command)
   else

@@ -59,7 +59,8 @@ local function save()
   state.message = nil
   if staged.startup.enabled ~= state.saved.startup.enabled then
     local named = reaper.GetExtState(settings.SECTION, "toggle_cmd." .. settings.ENGINE)
-    local ok, err = startup.set_enabled(staged.startup.enabled, named ~= "" and named or nil)
+    if named == "" then named = startup.find_engine_command() end
+    local ok, err = startup.set_enabled(staged.startup.enabled, named)
     if not ok then
       state.message = err
       staged.startup.enabled = state.saved.startup.enabled
@@ -109,6 +110,11 @@ local function draw_startup(ImGui, ctx)
   label(ImGui, ctx, "Start the engine with REAPER", function() values.enabled = false end)
   local _, on = ImGui.Checkbox(ctx, "##startup", values.enabled)
   values.enabled = on
+  if state.message then
+    ImGui.PushTextWrapPos(ctx, 0)
+    ImGui.TextColored(ctx, W.WARN, state.message)
+    ImGui.PopTextWrapPos(ctx)
+  end
   ImGui.PushTextWrapPos(ctx, 0)
   ImGui.TextDisabled(ctx, "Adds one line to Scripts/__startup.lua, or removes it. "
       .. "The rest of that file is left as it is.")
@@ -148,15 +154,15 @@ function M.draw(ImGui, ctx)
     ImGui.EndChild(ctx)
   end
 
-  if state.message then
-    ImGui.TextColored(ctx, W.WARN, state.message)
-    ImGui.SameLine(ctx)
-  end
   local button_w = 80
   local avail = ImGui.GetContentRegionAvail(ctx)
   ImGui.SetCursorPosX(ctx, ImGui.GetCursorPosX(ctx) + avail - 3 * button_w - 16)
   local close = false
-  if ImGui.Button(ctx, "OK", button_w) then save(); close = not state.message end
+  if ImGui.Button(ctx, "OK", button_w) then
+    save()
+    -- Stay open to show a problem; it is shown in the section it belongs to.
+    if state.message then state.section = "startup" else close = true end
+  end
   ImGui.SameLine(ctx)
   ImGui.BeginDisabled(ctx, not differs(state.staged, state.saved))
   if ImGui.Button(ctx, "Apply", button_w) then save() end

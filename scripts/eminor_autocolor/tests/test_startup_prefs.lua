@@ -26,6 +26,14 @@ function T.handles_a_missing_final_newline()
   assert(startup.remove_line(added) == "x = 1\n")
 end
 
+function T.finds_engine_command_in_keymap()
+  local kb = 'ACT 0 0 "abc" "Custom: x" 40001\n'
+    .. 'SCR 4 0 RS9f8e7d6c "Custom: eminor_autocolor_force.lua" "/r/eminor_autocolor_force.lua"\n'
+    .. 'SCR 4 0 RS1a2b3c4d "Custom: eminor_autocolor_engine.lua" "/r/eminor_autocolor_engine.lua"\n'
+  assert(startup.engine_command_in_keymap(kb) == "RS1a2b3c4d")
+  assert(startup.engine_command_in_keymap("KEY 1 2 3 0\n") == nil)
+end
+
 function T.prefs_parse_defaults_and_bounds()
   local v = prefs.parse("engine", "backstop_ms=99999;junk=1")
   assert(v.backstop_ms == 500)
