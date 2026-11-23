@@ -182,8 +182,14 @@ function M.run(ImGui)
 
   local function draw_header()
     local switches = settings.read_switches()
+    -- Pills wrap onto a second line when the window is narrow.
     for i, switch in ipairs(settings.SWITCHES) do
-      if i > 1 then ImGui.SameLine(ctx, nil, 6) end
+      if i > 1 then
+        ImGui.SameLine(ctx, nil, 6)
+        if ImGui.GetContentRegionAvail(ctx) < W.pill_width(ImGui, ctx, switch.label) then
+          ImGui.NewLine(ctx)
+        end
+      end
       if W.pill(ImGui, ctx, "##sw_" .. switch.key, switch.label, switches[switch.key]) then
         settings.set_switch(switch.key, not switches[switch.key])
       end
@@ -192,7 +198,11 @@ function M.run(ImGui)
     local right_w = 220
     ImGui.SameLine(ctx)
     local avail = ImGui.GetContentRegionAvail(ctx)
-    if avail > right_w then ImGui.SetCursorPosX(ctx, ImGui.GetCursorPosX(ctx) + avail - right_w) end
+    if avail > right_w then
+      ImGui.SetCursorPosX(ctx, ImGui.GetCursorPosX(ctx) + avail - right_w)
+    else
+      ImGui.NewLine(ctx)
+    end
 
     ImGui.BeginDisabled(ctx, not model:can_undo())
     if ImGui.Button(ctx, "Undo") then undo() end

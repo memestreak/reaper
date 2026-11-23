@@ -31,7 +31,7 @@ local FUNCTIONS = {
   IsAnyItemActive = { 1, 1 }, IsItemActive = { 1, 1 }, IsItemDeactivatedAfterEdit = { 1, 1 },
   IsItemHovered = { 1, 2 }, IsKeyChordPressed = { 2, 2 }, IsKeyPressed = { 2, 3 },
   IsMouseDoubleClicked = { 2, 2 }, IsPopupOpen = { 2, 3 }, IsRectVisible = { 3, 3 },
-  IsWindowAppearing = { 1, 1 }, IsWindowFocused = { 1, 2 }, MenuItem = { 2, 5 },
+  IsWindowAppearing = { 1, 1 }, IsWindowFocused = { 1, 2 }, MenuItem = { 2, 5 }, NewLine = { 1, 1 },
   OpenPopup = { 2, 3 }, PopFont = { 1, 1 }, PopID = { 1, 1 }, PopStyleColor = { 1, 2 },
   PopStyleVar = { 1, 2 }, PopTextWrapPos = { 1, 1 }, PushFont = { 3, 3 }, PushID = { 2, 2 },
   PushStyleColor = { 3, 3 }, PushStyleVar = { 3, 4 }, PushTextWrapPos = { 1, 2 },

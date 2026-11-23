@@ -67,11 +67,16 @@ function M.push_theme(ImGui, ctx)
   end
 end
 
+function M.pill_width(ImGui, ctx, label)
+  local text_w = ImGui.CalcTextSize(ctx, label)
+  return 4 + 22 + 6 + text_w + 9
+end
+
 -- A labelled on/off pill, as in the mocks. Returns true when clicked.
 function M.pill(ImGui, ctx, id, label, on)
-  local text_w, text_h = ImGui.CalcTextSize(ctx, label)
+  local _, text_h = ImGui.CalcTextSize(ctx, label)
   local h = ImGui.GetFrameHeight(ctx)
-  local w = 4 + 22 + 6 + text_w + 9
+  local w = M.pill_width(ImGui, ctx, label)
   local x, y = ImGui.GetCursorScreenPos(ctx)
   local clicked = ImGui.InvisibleButton(ctx, id, w, h)
   local hovered = ImGui.IsItemHovered(ctx)
