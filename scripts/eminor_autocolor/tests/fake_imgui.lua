@@ -39,13 +39,13 @@ local FUNCTIONS = {
   SetCursorPosX = { 2, 2 }, SetDragDropPayload = { 3, 4 }, SetItemTooltip = { 2, 2 },
   SetNextItemWidth = { 2, 2 }, SetNextWindowSize = { 3, 4 }, SetTooltip = { 2, 2 },
   SliderDouble = { 5, 7 }, SmallButton = { 2, 2 }, Spacing = { 1, 1 }, TableNextColumn = { 1, 1 },
-  TableNextRow = { 1, 3 }, TableSetupColumn = { 2, 5 }, Text = { 2, 2 }, TextColored = { 3, 3 },
+  TableNextRow = { 1, 3 }, TableHeadersRow = { 1, 1 }, SetNextWindowSizeConstraints = { 5, 6 }, TableSetupColumn = { 2, 5 }, Text = { 2, 2 }, TextColored = { 3, 3 },
   TextDisabled = { 2, 2 },
 }
 
 -- Constants that exist in ReaImGui 0.10 (the ones the editor uses).
 local CONSTANTS = {
-  "ChildFlags_Borders", "Col_Border", "Col_Button", "Col_ButtonActive", "Col_ButtonHovered",
+  "ChildFlags_AutoResizeY", "ChildFlags_Borders", "Col_Border", "Col_Button", "Col_ButtonActive", "Col_ButtonHovered",
   "Col_CheckMark", "Col_ChildBg", "Col_DragDropTarget", "Col_FrameBg", "Col_FrameBgActive",
   "Col_FrameBgHovered", "Col_Header", "Col_HeaderActive", "Col_HeaderHovered", "Col_NavCursor",
   "Col_PopupBg", "Col_Separator", "Col_SliderGrab", "Col_SliderGrabActive", "Col_TableBorderLight",

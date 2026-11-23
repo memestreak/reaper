@@ -364,25 +364,32 @@ function M.run(ImGui)
       end)
     end
     ImGui.SetItemTooltip(ctx, "Add a " .. group.target .. " rule")
-    if #rules == 0 then
-      ImGui.TextDisabled(ctx, "No " .. group.title:lower() .. " rules.")
-      return
-    end
+    if #rules == 0 then return end  -- just the title line: nothing to list
 
     local columns = is_track and 9 or 6
     local flags = ImGui.TableFlags_RowBg | ImGui.TableFlags_SizingFixedFit | ImGui.TableFlags_PadOuterX
     if not ImGui.BeginTable(ctx, "##table_" .. group.target, columns, flags) then return end
-    ImGui.TableSetupColumn(ctx, "grip", ImGui.TableColumnFlags_WidthFixed, 14)
-    ImGui.TableSetupColumn(ctx, "on", ImGui.TableColumnFlags_WidthFixed, ImGui.GetFrameHeight(ctx))
-    ImGui.TableSetupColumn(ctx, "colour", ImGui.TableColumnFlags_WidthFixed, SWATCH_W)
-    ImGui.TableSetupColumn(ctx, "filter", ImGui.TableColumnFlags_WidthStretch)
-    ImGui.TableSetupColumn(ctx, "mode", ImGui.TableColumnFlags_WidthFixed, 96)
-    if is_track then
-      ImGui.TableSetupColumn(ctx, "icon", ImGui.TableColumnFlags_WidthFixed, thumb + 10)
-      ImGui.TableSetupColumn(ctx, "tcp", ImGui.TableColumnFlags_WidthFixed, 90)
-      ImGui.TableSetupColumn(ctx, "mcp", ImGui.TableColumnFlags_WidthFixed, 90)
+    -- Fixed columns are at least as wide as their title.
+    local function column(name, width)
+      if width then
+        if name:sub(1, 2) ~= "##" then width = math.max(width, (ImGui.CalcTextSize(ctx, name))) end
+        ImGui.TableSetupColumn(ctx, name, ImGui.TableColumnFlags_WidthFixed, width)
+      else
+        ImGui.TableSetupColumn(ctx, name, ImGui.TableColumnFlags_WidthStretch)
+      end
     end
-    ImGui.TableSetupColumn(ctx, "matches", ImGui.TableColumnFlags_WidthFixed, 34)
+    column("##grip", 14)
+    column("On", ImGui.GetFrameHeight(ctx))
+    column("Colour", SWATCH_W)
+    column("Filter")
+    column("##mode", 96)
+    if is_track then
+      column("Icon", thumb + 10)
+      column("TCP layout", 90)
+      column("MCP layout", 90)
+    end
+    column("Matches", 34)
+    ImGui.TableHeadersRow(ctx)
 
     local row_h = math.max(ImGui.GetFrameHeight(ctx), is_track and thumb + 6 or 0)
     for position, rule in ipairs(rules) do
@@ -528,8 +535,12 @@ function M.run(ImGui)
     if visible then
       draw_header()
       ImGui.Spacing(ctx)
+      -- The rules area is as tall as its rules (so the footer sits right
+      -- under them), and scrolls once they don't fit in the window.
       local footer_h = ImGui.GetFrameHeightWithSpacing(ctx) + 6
-      if ImGui.BeginChild(ctx, "##rules", 0, -footer_h) then
+      local _, avail_h = ImGui.GetContentRegionAvail(ctx)
+      ImGui.SetNextWindowSizeConstraints(ctx, 0, 0, 1e6, math.max(40, avail_h - footer_h))
+      if ImGui.BeginChild(ctx, "##rules", 0, 0, ImGui.ChildFlags_AutoResizeY) then
         for _, group in ipairs(GROUPS) do draw_group(group, thumb) end
         ImGui.EndChild(ctx)
       end
