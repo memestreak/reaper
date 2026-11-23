@@ -59,7 +59,7 @@ local CONSTANTS = {
   "StyleVar_CellPadding", "StyleVar_ChildRounding", "StyleVar_FramePadding", "StyleVar_FrameRounding",
   "StyleVar_GrabRounding", "StyleVar_ItemSpacing", "StyleVar_PopupRounding", "StyleVar_WindowPadding",
   "TableColumnFlags_WidthFixed", "TableColumnFlags_WidthStretch", "TableFlags_PadOuterX",
-  "TableFlags_RowBg", "TableFlags_SizingFixedFit", "WindowFlags_NoResize", "WindowFlags_NoSavedSettings",
+  "TableFlags_RowBg", "TableFlags_SizingFixedFit", "WindowFlags_NoCollapse", "WindowFlags_NoResize", "WindowFlags_NoSavedSettings",
 }
 
 function M.new()

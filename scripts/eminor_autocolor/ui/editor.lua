@@ -511,7 +511,7 @@ function M.run(ImGui)
     local pop_theme = W.push_theme(ImGui, ctx)
     ImGui.PushFont(ctx, font, 13)
     ImGui.SetNextWindowSize(ctx, 760, 520, ImGui.Cond_FirstUseEver)
-    local visible, open = ImGui.Begin(ctx, TITLE, true)
+    local visible, open = ImGui.Begin(ctx, TITLE, true, ImGui.WindowFlags_NoCollapse)
     if visible then
       draw_header()
       ImGui.Spacing(ctx)
