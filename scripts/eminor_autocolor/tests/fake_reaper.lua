@@ -1,16 +1,27 @@
 -- tests/fake_reaper.lua
 --
--- A stand-in for the parts of REAPER's API that lib/apply.lua and
--- lib/match.lua use, so their logic can be tested with plain Lua.
+-- A stand-in for the parts of REAPER's API that the apply and match
+-- modules use, so their logic can be tested with plain Lua.
 -- Tracks are plain tables; "native" colours are 0xRRGGBB, as on macOS.
 
 local M = {}
 
+M.RESOURCE = "/res"
+M.ICONS = "/res/Data/track_icons/"
+M.THEME_MARKER = 0x00AA00   -- the fake theme's default marker colour
+M.THEME_REGION = 0x0000AA
+
 -- Makes a fresh fake project and installs it as the global `reaper`.
 -- `specs` lists tracks in order, each a table of track fields such as
 -- { name = "Gtr", folder = 1, depth = 0, parent = 1 }.
-function M.install(specs)
-  local master = { name = "", guid = "{MASTER}", colour = 0, ext = {}, is_master = true }
+-- `marker_specs` lists markers and regions in order, each like
+-- { name = "Verse", region = true, colour = 0, guid = "{M1}" }.
+-- `options.colour_zero_keeps` makes setting a marker colour to 0 leave it
+-- unchanged, as some REAPER versions do.
+function M.install(specs, marker_specs, options)
+  options = options or {}
+  local master = { name = "", guid = "{MASTER}", colour = 0, ext = {}, is_master = true,
+                   icon = "", tcp_layout = "", mcp_layout = "", show_tcp = 1, show_mcp = 1 }
   local tracks = {}
   for i, spec in ipairs(specs or {}) do
     tracks[i] = {
@@ -27,11 +38,30 @@ function M.install(specs)
       midi_hw_out = spec.midi_hw_out or -1,
       instrument = spec.instrument or -1,
       vca = spec.vca or 0,
+      icon = spec.icon or "",
+      tcp_layout = spec.tcp_layout or "",
+      mcp_layout = spec.mcp_layout or "",
+      show_tcp = spec.show_tcp or 1,
+      show_mcp = spec.show_mcp or 1,
       ext = {},
     }
   end
 
-  local fake = { tracks = tracks, master = master, writes = 0, undo_blocks = 0 }
+  local markers = {}
+  for i, spec in ipairs(marker_specs or {}) do
+    markers[i] = {
+      name = spec.name or "",
+      is_region = spec.region or false,
+      pos = spec.pos or i,
+      region_end = spec.region and (spec.pos or i) + 0.5 or 0,
+      number = spec.number or i,
+      colour = spec.colour or 0,
+      guid = spec.guid or string.format("{MARKER-%d}", i),
+    }
+  end
+
+  local fake = { tracks = tracks, master = master, markers = markers, proj_ext = {},
+                 writes = 0, marker_writes = 0, undo_blocks = 0 }
 
   function fake.GetMasterTrack() return master end
   function fake.CountTracks() return #tracks end
@@ -51,26 +81,81 @@ function M.install(specs)
   local values = {
     I_FOLDERDEPTH = "folder", I_RECARM = "rec_arm", I_RECINPUT = "rec_input",
     I_MIDIHWOUT = "midi_hw_out", I_CUSTOMCOLOR = "colour",
+    B_SHOWINTCP = "show_tcp", B_SHOWINMIXER = "show_mcp",
   }
+  local writable = { I_CUSTOMCOLOR = true, B_SHOWINTCP = true, B_SHOWINMIXER = true }
   function fake.GetMediaTrackInfo_Value(t, key)
+    assert(values[key], "unexpected read of " .. key)
     return (t[values[key]] or 0) + 0.0  -- REAPER returns floats
   end
   function fake.SetMediaTrackInfo_Value(t, key, value)
-    assert(key == "I_CUSTOMCOLOR", "unexpected write to " .. key)
-    t.colour = math.tointeger(value)
+    assert(writable[key], "unexpected write to " .. key)
+    t[values[key]] = math.tointeger(value)
     fake.writes = fake.writes + 1
     return true
   end
+  local strings = { P_NAME = "name", P_ICON = "icon", P_TCP_LAYOUT = "tcp_layout",
+                    P_MCP_LAYOUT = "mcp_layout" }
   function fake.GetSetMediaTrackInfo_String(t, key, value, set)
-    if key == "P_NAME" then
-      if set then t.name = value end
-      return true, t.name
+    if strings[key] then
+      if set then
+        t[strings[key]] = value
+        if key ~= "P_NAME" then fake.writes = fake.writes + 1 end
+      end
+      return true, t[strings[key]]
     end
     local ext = key:match("^P_EXT:(.+)$")
     assert(ext, "unexpected string key " .. key)
     if set then t.ext[ext] = value end
     return true, t.ext[ext] or ""
   end
+
+  function fake.GetResourcePath() return M.RESOURCE end
+
+  function fake.EnumProjectMarkers3(_, index)
+    local m = markers[index + 1]
+    if not m then return 0 end
+    return index + 1, m.is_region, m.pos + 0.0, m.region_end + 0.0, m.name, m.number, m.colour
+  end
+  function fake.SetProjectMarkerByIndex2(_, index, is_region, pos, region_end, number, name, colour, flags)
+    local m = assert(markers[index + 1], "no marker " .. index)
+    assert(m.is_region == is_region and m.pos == pos and m.number == number and m.name == name,
+           "marker fields changed")
+    if not (colour == 0 and options.colour_zero_keeps) then
+      m.colour = colour
+    end
+    fake.marker_writes = fake.marker_writes + 1
+    return true
+  end
+  function fake.GetSetProjectInfo_String(_, key, value, set)
+    local index = tonumber(key:match("^MARKER_GUID:(%d+)$"))
+    assert(index and not set, "unexpected project string " .. key)
+    local m = markers[index + 1]
+    return m ~= nil, m and m.guid or ""
+  end
+  function fake.GetThemeColor(name)
+    if name == "marker" then return M.THEME_MARKER end
+    if name == "region" then return M.THEME_REGION end
+    return -1
+  end
+  function fake.GetProjExtState(_, section, key)
+    local value = (fake.proj_ext[section] or {})[key]
+    return value and 1 or 0, value or ""
+  end
+  function fake.SetProjExtState(_, section, key, value)
+    fake.proj_ext[section] = fake.proj_ext[section] or {}
+    fake.proj_ext[section][key] = value ~= "" and value or nil
+    return 1
+  end
+  function fake.EnumProjExtState(_, section, index)
+    local keys = {}
+    for key in pairs(fake.proj_ext[section] or {}) do keys[#keys + 1] = key end
+    table.sort(keys)
+    local key = keys[index + 1]
+    if not key then return false, "", "" end
+    return true, key, fake.proj_ext[section][key]
+  end
+  function fake.UpdateTimeline() end
 
   function fake.ColorToNative(r, g, b) return (r << 16) | (g << 8) | b end
   function fake.PreventUIRefresh() end

@@ -14,6 +14,7 @@
 --   rules_version           bumped whenever the rules file is saved
 --   toggle_cmd.<switch>     named command ID of each toggle action, so the engine
 --                           can show the right state on toolbars at startup
+--   timing_log              "1" while the engine logs its timing (not saved)
 --   engine_running          "1" while the engine runs (not saved)
 
 local M = {}
@@ -91,6 +92,19 @@ function M.toggle_command(key)
   local command_id = reaper.NamedCommandLookup("_" .. named)
   if command_id == 0 then return nil end
   return command_id
+end
+
+-- The timing log is a debugging aid, so it resets when REAPER restarts.
+-- Turning it on or off bumps switches_version so the engine notices at once.
+M.TIMING_LOG = "timing_log"
+
+function M.timing_log_on()
+  return get(M.TIMING_LOG) == "1"
+end
+
+function M.set_timing_log(on)
+  set(M.TIMING_LOG, on and "1" or "", false)
+  bump("switches_version")
 end
 
 function M.set_engine_running(running)

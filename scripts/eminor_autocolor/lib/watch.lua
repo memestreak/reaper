@@ -7,8 +7,8 @@
 -- thread, so it cannot cause dropouts. What it must avoid is spending UI
 -- time at the wrong moment. So:
 --   * Most ticks only compare two numbers and return.
---   * A full look at the tracks (the "signature") happens only when the
---     project's change counter moves, or every BACKSTOP_SECONDS as a
+--   * A full look at the tracks, markers and regions (the "signature")
+--     happens only when the project's change counter moves, or every BACKSTOP_SECONDS as a
 --     fallback for changes that add no undo point (such as rec-arm).
 --   * A pass waits until edits have been quiet for SETTLE_SECONDS, never
 --     runs while recording, and never runs in the TRANSPORT_GUARD_SECONDS
@@ -91,6 +91,26 @@ function M.track_signature()
     }, "\1")
   end
   return table.concat(parts, "\2")
+end
+
+-- The same for markers and regions: their names, colours and order.
+function M.marker_signature()
+  local parts = {}
+  local index = 0
+  while true do
+    local retval, is_region, pos, _, name, number, colour = reaper.EnumProjectMarkers3(0, index)
+    if retval == 0 then break end
+    parts[#parts + 1] = table.concat({
+      is_region and "R" or "M", number, pos, name, colour,
+    }, "\1")
+    index = index + 1
+  end
+  return table.concat(parts, "\2")
+end
+
+-- Everything any rule can depend on.
+function M.project_signature()
+  return M.track_signature() .. "\3" .. M.marker_signature()
 end
 
 return M

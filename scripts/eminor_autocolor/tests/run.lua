@@ -9,7 +9,10 @@
 local here = debug.getinfo(1, "S").source:match("^@?(.*[/\\])") or "./"
 package.path = here .. "../?.lua;" .. here .. "?.lua;" .. package.path
 
-local FILES = { "test_colour", "test_rules", "test_match", "test_apply", "test_sws_import", "test_watch" }
+local FILES = {
+  "test_colour", "test_rules", "test_match", "test_state", "test_apply",
+  "test_icons_layouts", "test_markers", "test_sws_import", "test_watch", "test_timing",
+}
 
 local passed, failed = 0, 0
 for _, file in ipairs(FILES) do
