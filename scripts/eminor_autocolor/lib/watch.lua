@@ -8,7 +8,8 @@
 -- time at the wrong moment. So:
 --   * Most ticks only compare two numbers and return.
 --   * A full look at the tracks, markers and regions (the "signature")
---     happens only when the project's change counter moves, or every BACKSTOP_SECONDS as a
+--     happens only when the project's change counter moves, or every
+--     backstop interval (Settings › Engine, default BACKSTOP_SECONDS) as a
 --     fallback for changes that add no undo point (such as rec-arm).
 --   * A pass waits until edits have been quiet for SETTLE_SECONDS, never
 --     runs while recording, and never runs in the TRANSPORT_GUARD_SECONDS

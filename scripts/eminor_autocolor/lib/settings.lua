@@ -9,7 +9,7 @@
 --   switch.track_layout
 --   switch.marker_colour
 --   switch.region_colour
---   switches_version        bumped whenever a switch changes, so the engine
+--   switches_version        bumped whenever a switch or engine setting changes, so the engine
 --                           notices without re-reading every key each tick
 --   rules_version           bumped whenever the rules file is saved
 --   toggle_cmd.<switch>     named command ID of each toggle action, so the engine
@@ -92,6 +92,14 @@ function M.toggle_command(key)
   local command_id = reaper.NamedCommandLookup("_" .. named)
   if command_id == 0 then return nil end
   return command_id
+end
+
+-- Key under which the engine action's own command ID is remembered.
+M.ENGINE = "engine"
+
+-- Tells a running engine to re-read the switches and its settings.
+function M.notify_engine()
+  bump("switches_version")
 end
 
 -- The timing log is a debugging aid, so it resets when REAPER restarts.
