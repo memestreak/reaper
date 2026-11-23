@@ -11,6 +11,7 @@ local settings = require("lib.settings")
 local apply = require("lib.apply")
 local watch = require("lib.watch")
 local sws_import = require("lib.sws_import")
+local timing = require("lib.timing")
 
 local M = {}
 
@@ -31,15 +32,19 @@ local function report_problems(problems)
 end
 
 -- Shows each switch's state on toolbar buttons of its toggle action.
-local function refresh_toggle_states(switches)
+local function refresh_toggle_states(switches, timing_on)
   local MAIN_SECTION = 0
-  for _, switch in ipairs(settings.SWITCHES) do
-    local command_id = settings.toggle_command(switch.key)
+  local function show(key, on)
+    local command_id = settings.toggle_command(key)
     if command_id then
-      reaper.SetToggleCommandState(MAIN_SECTION, command_id, switches[switch.key] and 1 or 0)
+      reaper.SetToggleCommandState(MAIN_SECTION, command_id, on and 1 or 0)
       reaper.RefreshToolbar2(MAIN_SECTION, command_id)
     end
   end
+  for _, switch in ipairs(settings.SWITCHES) do
+    show(switch.key, switches[switch.key])
+  end
+  show(settings.TIMING_LOG, timing_on)
 end
 
 -- Creates the rules file on first run. If SWS rules exist they are copied
@@ -104,7 +109,10 @@ function M.run()
   local gate = watch.new_gate()
   local pending = true  -- run once at start
 
-  refresh_toggle_states(switches)
+  local timing_on = settings.timing_log_on()
+  local stats = timing.new(reaper.time_precise())
+
+  refresh_toggle_states(switches, timing_on)
 
   local function reload_rules_if_changed()
     local text = rules_module.read_file(path) or ""
@@ -133,7 +141,13 @@ function M.run()
     if new_switches_version ~= switches_version then
       switches_version = new_switches_version
       switches = settings.read_switches()
-      refresh_toggle_states(switches)
+      local was_timing = timing_on
+      timing_on = settings.timing_log_on()
+      if timing_on and not was_timing then
+        stats = timing.new(now)
+        log("timing log on; a summary follows every " .. timing.REPORT_SECONDS .. " s")
+      end
+      refresh_toggle_states(switches, timing_on)
       pending = true
     end
 
@@ -143,7 +157,7 @@ function M.run()
     if current_project ~= project or count ~= change_count or now >= next_backstop then
       project, change_count = current_project, count
       next_backstop = now + watch.BACKSTOP_SECONDS
-      local new_signature = watch.track_signature()
+      local new_signature = watch.project_signature()
       if new_signature ~= signature then
         signature = new_signature
         pending = true
@@ -155,10 +169,23 @@ function M.run()
 
     if pending and watch.may_run(gate, now) then
       pending = false
-      apply.run_pass(rules, switches, false)
+      local pass_start = reaper.time_precise()
+      local changes = apply.run_pass(rules, switches, false)
       -- Take our own edits as the new baseline so they don't trigger a pass.
-      signature = watch.track_signature()
+      signature = watch.project_signature()
       change_count = reaper.GetProjectStateChangeCount(current_project)
+      if timing_on then
+        timing.note_pass(stats, reaper.time_precise() - pass_start, changes)
+      end
+    end
+
+    if timing_on then
+      local done = reaper.time_precise()
+      timing.note_tick(stats, done - now)
+      if timing.due(stats, done) then
+        log(timing.report(stats, done))
+        stats = timing.new(done)
+      end
     end
 
     reaper.defer(tick)
