@@ -43,8 +43,9 @@ local function refresh_toggle_states(switches)
 end
 
 -- Creates the rules file on first run. If SWS rules exist they are copied
--- in (skipping SWS's unused "(name)" placeholder), along with SWS's on/off
--- switches; otherwise the file starts empty.
+-- in (skipping SWS's unused "(name)" placeholder); otherwise the file
+-- starts empty. SWS's on/off switches are not copied: switching SWS off
+-- is part of moving over, so they are usually off by now.
 local function create_rules_file(path)
   local sep = package.config:sub(1, 1)
   local folder = path:match("^(.*)" .. sep)
@@ -58,7 +59,7 @@ local function create_rules_file(path)
       local r, g, b = reaper.ColorFromNative(native)
       return (r << 16) | (g << 8) | b
     end
-    local raw_rules, switches, skipped = sws_import.parse(sws_text, from_native)
+    local raw_rules, _, skipped = sws_import.parse(sws_text, from_native)
     report_problems(skipped)
     for i, raw in ipairs(raw_rules) do
       local rule, err = rules_module.check_rule(raw)
@@ -68,7 +69,6 @@ local function create_rules_file(path)
         clean[#clean + 1] = rule
       end
     end
-    for key, on in pairs(switches) do settings.set_switch(key, on) end
     log(string.format("copied %d rules from SWS into %s", #clean, path))
   end
   rules_module.assign_ids(clean)
