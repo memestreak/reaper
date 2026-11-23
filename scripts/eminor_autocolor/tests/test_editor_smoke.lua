@@ -26,8 +26,10 @@ local function start()
     { { name = "Guitar L" }, { name = "Drums", folder = 1 }, { name = "Kick", depth = 1, parent = 2 } },
     { { name = "Verse 1", region = true }, { name = "Chorus", region = true }, { name = "cue" } })
 
-  local resource = os.tmpname()
-  os.remove(resource)
+  -- A fresh folder under $TMPDIR (os.tmpname needs /tmp, which sandboxes may block).
+  local base = os.getenv("TMPDIR") or "/tmp"
+  local resource = string.format("%s/eminor_autocolor_test_%d_%d", base:gsub("/$", ""),
+      os.time(), math.random(1, 1e9))
   os.execute("mkdir -p '" .. resource .. "/Data/eminor_autocolor' '" .. resource .. "/Scripts'")
   local path = resource .. "/Data/eminor_autocolor/rules.lua"
   assert(rules.write_file(path, RULES))
