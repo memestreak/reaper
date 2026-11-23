@@ -17,6 +17,8 @@ A personal collection of Lua action scripts for the Reaper DAW.
   Reaper's API (the `reaper.*` table) is unavailable outside Reaper, so
   scripts cannot be executed here -- `luac -p` catches syntax errors
   only, and behavior needs testing in Reaper itself.
+- `scripts/eminor_autocolor/` has plain-Lua tests for its REAPER-free
+  logic. Run them after changing it: `lua scripts/eminor_autocolor/tests/run.lua`.
 - Refer to native actions by a named constant holding the command ID,
   with the Action List description in a trailing comment, rather than
   passing bare integers to `reaper.Main_OnCommand`.
