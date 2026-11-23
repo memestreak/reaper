@@ -207,6 +207,18 @@ function T.palettes_dialog_adds_a_palette()
   assert(#palettes == 2 and palettes[2].name == "Palette 2")
 end
 
+function T.escape_closes_the_editor()
+  local imgui, step = start()
+  step()
+  local real = imgui.ImGui.IsKeyPressed
+  rawset(imgui.ImGui, "IsKeyPressed", function(ctx, key, ...)
+    real(ctx, key, ...)
+    return key == imgui.ImGui.Key_Escape
+  end)
+  local ok, err = pcall(step)
+  assert(not ok and err:find("editor stopped"), "editor kept running after Esc")
+end
+
 function T.force_button_colours_the_project()
   local imgui, step, _, fake = start()
   step()

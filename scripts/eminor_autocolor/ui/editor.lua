@@ -446,6 +446,9 @@ function M.run(ImGui)
   local function handle_keys()
     if ImGui.IsAnyItemActive(ctx) or ImGui.IsPopupOpen(ctx, "", ImGui.PopupFlags_AnyPopup) then return end
     if not ImGui.IsWindowFocused(ctx, ImGui.FocusedFlags_RootAndChildWindows) then return end
+    -- Esc closes the editor (only when nothing else is using it: a field
+    -- being typed in or a popup gets Esc first).
+    if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then ui.close_requested = true return end
     local ctrl, shift, alt = ImGui.Mod_Ctrl, ImGui.Mod_Shift, ImGui.Mod_Alt
     if ImGui.IsKeyChordPressed(ctx, ctrl | shift | ImGui.Key_Z) then redo() return end
     if ImGui.IsKeyChordPressed(ctx, ctrl | ImGui.Key_Z) then undo() return end
@@ -527,7 +530,7 @@ function M.run(ImGui)
     end
     ImGui.PopFont(ctx)
     pop_theme()
-    return open
+    return open and not ui.close_requested
   end
 
   local function loop()
