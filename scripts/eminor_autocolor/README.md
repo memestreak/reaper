@@ -4,8 +4,9 @@ A replacement for SWS Auto Color/Icon/Layout, written as Lua ReaScripts.
 It colours tracks, markers and regions, and sets track icons and layouts,
 by rules you set. It leaves changes you make by hand alone.
 
-Status: **phase 2**. Everything SWS Auto Color/Icon/Layout does works
-from the rules file. The editor window comes in phase 3; see the plan doc.
+Status: **phase 3**. Everything SWS Auto Color/Icon/Layout does works,
+and rules are edited in the editor window. Import from SWS inside the
+editor and switching SWS off come in phase 4; see the plan doc.
 
 ## Actions
 
@@ -14,6 +15,7 @@ Load each with Action List › New action › Load ReaScript.
 | Script | What it does |
 | --- | --- |
 | `eminor_autocolor_engine.lua` | Starts the background engine; run again to stop it. Shows on/off on toolbars. |
+| `eminor_autocolor_editor.lua` | Opens the rule editor; run again to close it. Needs ReaImGui 0.10+ (ReaPack). |
 | `eminor_autocolor_force.lua` | Applies every rule now, overwriting hand-set colours, as one undo point. |
 | `eminor_autocolor_toggle_track_colour.lua` | Turns automatic track colouring on or off. |
 | `eminor_autocolor_toggle_track_icon.lua` | Turns automatic track icons on or off. |
@@ -24,23 +26,45 @@ Load each with Action List › New action › Load ReaScript.
 
 All toggles show on/off on toolbars.
 
-To start the engine with REAPER, add this line to
-`<resource folder>/Scripts/__startup.lua`, using the command ID the
-Action List shows for the engine script (right-click › Copy selected
-action command ID):
+To start the engine with REAPER, tick Settings › Startup in the editor.
+Or add this line to `<resource folder>/Scripts/__startup.lua` yourself,
+using the command ID the Action List shows for the engine script
+(right-click › Copy selected action command ID):
 
 ```lua
 reaper.Main_OnCommand(reaper.NamedCommandLookup("_RS..."), 0)
 ```
+
+## The editor
+
+Rules are grouped into Tracks, Regions and Markers, each in its own
+priority order (top wins), and edited in place:
+
+- **Drag** a row's `::` grip to reorder it, or select a row and press
+  Alt+Up / Alt+Down. Right-click the grip to duplicate, move or delete.
+- **Tick** a rule to turn it on or off without deleting it.
+- **Click the swatch** for colours: saved palettes and colours in use
+  first, "Custom colour…" for the full picker. Family colours have a
+  Range / Palette toggle with hue and lightness sliders and a preview.
+- **Type the filter**, or pick a special filter from the arrow menu.
+- **Click the icon** for a browser over `Data/track_icons` (subfolders
+  included). TCP and MCP menus list the current theme's layouts.
+- The number on the right is how many items the filter matches now.
+
+Every change is saved at once and the engine applies it straight away.
+Cmd+Z and Cmd+Shift+Z (or the Undo and Redo buttons) undo rule edits.
+The pills along the top are the same five switches as the toggle
+actions. Settings holds the engine's fallback check interval, the icon
+thumbnail size, and "Start the engine with REAPER", which adds or removes
+one line in `Scripts/__startup.lua`.
 
 ## Rules
 
 Rules live in `<resource folder>/Data/eminor_autocolor/rules.lua`, outside
 this repository. The first time the engine runs it creates the file,
 copying your SWS rules from `sws-autocoloricon.ini` if there are any.
-Until the editor exists, edit the file by hand; the engine picks up
-changes within two seconds. The format is described at the top of
-`lib/rules.lua`.
+The editor writes it; hand edits also work and are picked up within two
+seconds. The format is described at the top of `lib/rules.lua`.
 
 Matching follows SWS:
 
@@ -95,5 +119,8 @@ The logic that doesn't need REAPER is tested with plain Lua 5.4:
 lua scripts/eminor_autocolor/tests/run.lua
 ```
 
-`tests/fake_reaper.lua` stands in for the REAPER API in those tests.
+`tests/fake_reaper.lua` stands in for the REAPER API in those tests, and
+`tests/fake_imgui.lua` for ReaImGui: it knows the real argument counts of
+every ReaImGui 0.10 function the editor calls, so a wrong name or call
+fails the tests. It can't show how the window looks.
 Anything that touches REAPER for real still needs checking in REAPER.

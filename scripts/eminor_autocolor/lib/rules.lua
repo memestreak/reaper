@@ -14,7 +14,14 @@
 --       { id = "r2", target = "region", filter = "verse",
 --         colour = { mode = "family", base = "#8AC627", hue = 8, light = 0.12 } },
 --     },
+--     palettes = {
+--       { name = "Song sections", colours = { "#EA8D20", "#8AC627" } },
+--     },
 --   }
+--
+-- Palettes are saved colour lists the editor offers in its colour popover.
+-- A family rule copies a palette's colours into its own "palette" field,
+-- so later edits to the saved palette don't change existing rules.
 --
 -- Rule fields:
 --   id          unique text; generated when missing
@@ -188,8 +195,39 @@ end
 -- Parsing and writing
 -- -----------------------------------------------------------------------------
 
+-- Checks the optional palettes list. Returns clean palettes
+-- ({ name = text, colours = { 0xRRGGBB, ... } }) and adds any problems.
+local function check_palettes(raw, problems)
+  local palettes = {}
+  if raw == nil then return palettes end
+  if type(raw) ~= "table" then
+    problems[#problems + 1] = "palettes must be a list"
+    return palettes
+  end
+  for i, item in ipairs(raw) do
+    local ok = type(item) == "table" and type(item.name) == "string"
+        and item.name ~= "" and type(item.colours) == "table"
+    local colours = {}
+    if ok then
+      for j, value in ipairs(item.colours) do
+        local rgb = colour.parse_hex(value)
+        if not rgb then ok = false break end
+        colours[j] = rgb
+      end
+    end
+    if ok then
+      palettes[#palettes + 1] = { name = item.name, colours = colours }
+    else
+      problems[#problems + 1] = string.format(
+          "palette %d skipped: needs a name and a list of \"#RRGGBB\" colours", i)
+    end
+  end
+  return palettes
+end
+
 -- Parses the text of a rules file.
--- Returns the list of clean rules and a list of problem messages.
+-- Returns the list of clean rules, a list of problem messages, and the
+-- list of saved palettes.
 -- The file runs with no access to any functions, so it can hold data only.
 function M.parse(text)
   local chunk, syntax_error = load(text, "rules.lua", "t", {})
@@ -204,6 +242,7 @@ function M.parse(text)
     return {}, { "rules file must return a table with a \"rules\" list" }
   end
   local rules, problems = {}, {}
+  local palettes = check_palettes(data.palettes, problems)
   for i, raw in ipairs(data.rules) do
     local rule, err = M.check_rule(raw)
     if rule then
@@ -213,7 +252,7 @@ function M.parse(text)
     end
   end
   M.assign_ids(rules)
-  return rules, problems
+  return rules, problems, palettes
 end
 
 local function quote(text)
@@ -238,9 +277,9 @@ local function format_colour(spec)
   return string.format("{ mode = %s }", quote(spec.mode))
 end
 
--- Turns clean rules back into file text. Fields come out in a fixed order
--- so the file diffs well.
-function M.serialize(rules)
+-- Turns clean rules (and saved palettes, if any) back into file text.
+-- Fields come out in a fixed order so the file diffs well.
+function M.serialize(rules, palettes)
   local lines = {
     "-- eminor Auto Color rules. Rules are checked top to bottom within each",
     "-- target (track, marker, region); the first match wins.",
@@ -262,6 +301,16 @@ function M.serialize(rules)
     lines[#lines + 1] = "    { " .. table.concat(parts, ", ") .. " },"
   end
   lines[#lines + 1] = "  },"
+  if palettes and #palettes > 0 then
+    lines[#lines + 1] = "  palettes = {"
+    for _, palette in ipairs(palettes) do
+      local items = {}
+      for i, rgb in ipairs(palette.colours) do items[i] = quote(colour.to_hex(rgb)) end
+      lines[#lines + 1] = string.format("    { name = %s, colours = { %s } },",
+          quote(palette.name), table.concat(items, ", "))
+    end
+    lines[#lines + 1] = "  },"
+  end
   lines[#lines + 1] = "}"
   return table.concat(lines, "\n") .. "\n"
 end

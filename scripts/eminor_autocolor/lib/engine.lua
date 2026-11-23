@@ -12,6 +12,7 @@ local apply = require("lib.apply")
 local watch = require("lib.watch")
 local sws_import = require("lib.sws_import")
 local timing = require("lib.timing")
+local prefs = require("lib.prefs")
 
 local M = {}
 
@@ -87,6 +88,9 @@ function M.run()
     return
   end
   reaper.set_action_options(OPTION_TERMINATE_ON_RELAUNCH | OPTION_TOGGLE_ON)
+  -- Remember this action's ID, for the editor's "start with REAPER" setting.
+  local _, _, _, command_id = reaper.get_action_context()
+  settings.remember_toggle_command(settings.ENGINE, command_id)
   settings.set_engine_running(true)
   reaper.atexit(function()
     reaper.set_action_options(OPTION_TOGGLE_OFF)
@@ -110,6 +114,7 @@ function M.run()
   local pending = true  -- run once at start
 
   local timing_on = settings.timing_log_on()
+  local backstop_seconds = prefs.read("engine").backstop_ms / 1000
   local stats = timing.new(reaper.time_precise())
 
   refresh_toggle_states(switches, timing_on)
@@ -143,6 +148,7 @@ function M.run()
       switches = settings.read_switches()
       local was_timing = timing_on
       timing_on = settings.timing_log_on()
+      backstop_seconds = prefs.read("engine").backstop_ms / 1000
       if timing_on and not was_timing then
         stats = timing.new(now)
         log("timing log on; a summary follows every " .. timing.REPORT_SECONDS .. " s")
@@ -156,7 +162,7 @@ function M.run()
     local count = reaper.GetProjectStateChangeCount(current_project)
     if current_project ~= project or count ~= change_count or now >= next_backstop then
       project, change_count = current_project, count
-      next_backstop = now + watch.BACKSTOP_SECONDS
+      next_backstop = now + backstop_seconds
       local new_signature = watch.project_signature()
       if new_signature ~= signature then
         signature = new_signature
