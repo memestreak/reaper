@@ -11,7 +11,7 @@ package.path = here .. "../?.lua;" .. here .. "?.lua;" .. package.path
 
 local FILES = {
   "test_colour", "test_rules", "test_match", "test_state", "test_apply",
-  "test_icons_layouts", "test_markers", "test_sws_import", "test_watch", "test_timing",
+  "test_icons_layouts", "test_markers", "test_sws_import", "test_sws_switches", "test_watch", "test_timing",
   "test_editor_model", "test_startup_prefs", "test_editor_smoke",
 }
 

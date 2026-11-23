@@ -7,11 +7,15 @@
 -- the close button is the same as Cancel.
 --
 -- The five on/off switches are live controls, so they live in the
--- editor's header and the Action List, not here.
+-- editor's header and the Action List, not here. SWS's own switches are
+-- here (staged like the rest), with Import from SWS, which opens over this
+-- dialog and is an undoable edit of the rules rather than a setting.
 
 local prefs = require("lib.prefs")
 local startup = require("lib.startup")
 local settings = require("lib.settings")
+local sws_switches = require("lib.sws_switches")
+local sws_import_dialog = require("ui.sws_import_dialog")
 local W = require("ui.widgets")
 
 local M = {}
@@ -22,6 +26,7 @@ local SECTIONS = {
   { key = "engine", label = "Engine" },
   { key = "appearance", label = "Appearance" },
   { key = "startup", label = "Startup" },
+  { key = "sws", label = "SWS" },
 }
 
 local WIDTH, HEIGHT = 600, 340
@@ -34,6 +39,7 @@ local function load()
     engine = prefs.read("engine"),
     appearance = prefs.read("appearance"),
     startup = { enabled = startup.is_enabled() },
+    sws = sws_switches.read(),
   }
 end
 
@@ -65,6 +71,9 @@ local function save()
       state.message = err
       staged.startup.enabled = state.saved.startup.enabled
     end
+  end
+  for key, on in pairs(staged.sws) do
+    if on ~= state.saved.sws[key] then sws_switches.set(key, on) end
   end
   settings.notify_engine()
   state.saved = load()
@@ -121,8 +130,40 @@ local function draw_startup(ImGui, ctx)
   ImGui.PopTextWrapPos(ctx)
 end
 
--- Draws the dialog when open. Call every frame.
-function M.draw(ImGui, ctx)
+local function help(ImGui, ctx, text)
+  ImGui.PushTextWrapPos(ctx, 0)
+  ImGui.TextDisabled(ctx, text)
+  ImGui.PopTextWrapPos(ctx)
+end
+
+local function draw_sws(ImGui, ctx)
+  local values = state.staged.sws
+  if not sws_switches.installed() then
+    help(ImGui, ctx, "SWS isn't installed, so there is nothing to switch off.")
+  else
+    for _, switch in ipairs(sws_switches.LIST) do
+      if values[switch.key] ~= nil then
+        label(ImGui, ctx, switch.label, function() values[switch.key] = false end)
+        local _, on = ImGui.Checkbox(ctx, "##sws_" .. switch.key, values[switch.key])
+        values[switch.key] = on
+      end
+    end
+    help(ImGui, ctx, "SWS's own Auto Color switches. Leave them off: when SWS and "
+        .. "eminor Auto Color both colour the same things, they undo each other's work.")
+  end
+  ImGui.Spacing(ctx)
+  ImGui.Separator(ctx)
+  ImGui.Spacing(ctx)
+  -- Opened after the pane ends: a popup's ID depends on the window it is
+  -- opened from, and Import is drawn from the dialog, not the pane.
+  if ImGui.Button(ctx, "Import rules from SWS…") then state.open_import = true end
+  help(ImGui, ctx, "Copies the rules from SWS Auto Color into yours. "
+      .. "This changes your rules at once (not on OK), and Undo in the editor takes it back.")
+end
+
+-- Draws the dialog when open. Call every frame. `context` is passed on to
+-- Import from SWS: { rules = the current rules, edit(label, change(doc)) }.
+function M.draw(ImGui, ctx, context)
   if not state then return end
   ImGui.SetNextWindowSize(ctx, WIDTH, HEIGHT, ImGui.Cond_Always)
   local flags = ImGui.WindowFlags_NoResize | ImGui.WindowFlags_NoSavedSettings
@@ -132,6 +173,8 @@ function M.draw(ImGui, ctx)
     return
   end
 
+  -- Esc while Import is open closes only Import.
+  local import_open = ImGui.IsPopupOpen(ctx, sws_import_dialog.POPUP)
   local footer_h = ImGui.GetFrameHeightWithSpacing(ctx) + 8
   if ImGui.BeginChild(ctx, "##sections", LIST_WIDTH, -footer_h, ImGui.ChildFlags_Borders) then
     for _, section in ipairs(SECTIONS) do
@@ -148,6 +191,8 @@ function M.draw(ImGui, ctx)
     end
     if state.section == "startup" then
       draw_startup(ImGui, ctx)
+    elseif state.section == "sws" then
+      draw_sws(ImGui, ctx)
     else
       draw_number_fields(ImGui, ctx, state.section)
     end
@@ -169,7 +214,12 @@ function M.draw(ImGui, ctx)
   ImGui.EndDisabled(ctx)
   ImGui.SameLine(ctx)
   if ImGui.Button(ctx, "Cancel", button_w) then close = true end
-  if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then close = true end
+  if not import_open and ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then close = true end
+  if state.open_import then
+    state.open_import = nil
+    sws_import_dialog.open(ImGui, ctx)
+  end
+  sws_import_dialog.draw(ImGui, ctx, context)
 
   if close or not open then
     ImGui.CloseCurrentPopup(ctx)

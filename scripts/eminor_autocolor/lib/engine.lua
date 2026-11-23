@@ -65,16 +65,9 @@ local function create_rules_file(path)
       local r, g, b = reaper.ColorFromNative(native)
       return (r << 16) | (g << 8) | b
     end
-    local raw_rules, _, skipped = sws_import.parse(sws_text, from_native)
-    report_problems(skipped)
-    for i, raw in ipairs(raw_rules) do
-      local rule, err = rules_module.check_rule(raw)
-      if not rule then
-        log("SWS rule " .. i .. " not imported: " .. err)
-      elseif not sws_import.is_unused_placeholder(rule) then
-        clean[#clean + 1] = rule
-      end
-    end
+    local problems
+    clean, problems = sws_import.convert(sws_text, from_native)
+    report_problems(problems)
     log(string.format("copied %d rules from SWS into %s", #clean, path))
   end
   rules_module.assign_ids(clean)

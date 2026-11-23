@@ -227,4 +227,100 @@ function T.force_button_colours_the_project()
   assert(fake.tracks[1].colour == fake_reaper.flagged(0xBF0004))
 end
 
+-- Jeremy's SWS rules, shortened: two tracks (one he already has) and a region.
+local SWS_INI = [[
+[SWS]
+AutoColor 1=0 guitar 46071812 "" "" ""
+AutoColor 2=0 synth 35360539 "" "" ""
+AutoColor 3=2 bridge 41943104 "" "" ""
+AutoColorEnable=1
+]]
+
+local function install_sws(fake)
+  fake.sws = {
+    ["_SWSAUTOCOLOR_ENABLE"] = 1, ["_S&MAUTOICON_ENABLE"] = 0, ["_S&MAUTOLAYOUT_ENABLE"] = 0,
+    ["_S&MAUTOCOLOR_MKR_ENABLE"] = 0, ["_S&MAUTOCOLOR_RGN_ENABLE"] = 0,
+  }
+  assert(rules.write_file(fake.GetResourcePath() .. "/sws-autocoloricon.ini", SWS_INI))
+end
+
+local function open_sws_settings(imgui, step)
+  step()
+  imgui.press("Settings")
+  step()
+  imgui.press("SWS")
+  step()
+end
+
+function T.settings_turns_sws_switches_off_on_ok()
+  local imgui, step, _, fake = start()
+  install_sws(fake)
+  open_sws_settings(imgui, step)
+  imgui.press("##sws_track_colour")
+  step()
+  assert(#fake.commands_run == 0, "changed before OK")
+  imgui.press("OK")
+  step()
+  assert(fake.commands_run[1] == "_SWSAUTOCOLOR_ENABLE" and #fake.commands_run == 1)
+  assert(fake.sws["_SWSAUTOCOLOR_ENABLE"] == 0)
+end
+
+function T.import_from_sws_adds_new_rules_and_undoes()
+  local imgui, step, file, fake = start()
+  install_sws(fake)
+  open_sws_settings(imgui, step)
+  imgui.press("Import rules from SWS…")
+  step()
+  assert(imgui.opened["Import from SWS##eminor_autocolor"], "import did not open")
+  step()
+  imgui.press("Import")
+  step()
+  assert(not imgui.opened["Import from SWS##eminor_autocolor"])
+  assert(imgui.opened["Settings##eminor_autocolor"], "settings should stay open")
+  local list = file()
+  assert(#list == 7, #list)  -- 5 + synth + bridge; guitar is already there
+  assert(list[6].filter == "synth" and list[7].filter == "bridge")
+  imgui.press("Cancel")
+  step()
+  imgui.press("Undo")
+  step()
+  assert(#file() == 5)
+end
+
+function T.esc_in_import_closes_only_import()
+  local imgui, step, _, fake = start()
+  install_sws(fake)
+  open_sws_settings(imgui, step)
+  imgui.press("Import rules from SWS…")
+  step()
+  local real = imgui.ImGui.IsKeyPressed
+  rawset(imgui.ImGui, "IsKeyPressed", function(ctx, key, ...)
+    real(ctx, key, ...)
+    return key == imgui.ImGui.Key_Escape
+  end)
+  step()
+  rawset(imgui.ImGui, "IsKeyPressed", real)
+  assert(not imgui.opened["Import from SWS##eminor_autocolor"])
+  assert(imgui.opened["Settings##eminor_autocolor"])
+end
+
+function T.footer_warns_when_sws_does_the_same_job()
+  local imgui, step, _, fake = start()
+  install_sws(fake)
+  fake.SetExtState("eminor_autocolor", "switch.track_colour", "1")
+  local shown = {}
+  local real = imgui.ImGui.TextColored
+  rawset(imgui.ImGui, "TextColored", function(ctx, col, text)
+    real(ctx, col, text)
+    shown[text] = true
+  end)
+  step()
+  assert(shown["SWS Auto Color is also on."], "no warning")
+  fake.sws["_SWSAUTOCOLOR_ENABLE"] = 0
+  for _ = 1, 30 do step() end  -- the SWS state is read once a second
+  shown = {}
+  step()
+  assert(not shown["SWS Auto Color is also on."], "warning stayed")
+end
+
 return T
