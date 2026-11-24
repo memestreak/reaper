@@ -28,15 +28,9 @@ Load each with Action List › New action › Load ReaScript.
 | --- | --- |
 | `eminor_autocolor_engine.lua` | Starts the background engine; run again to stop it. Shows on/off on toolbars. |
 | `eminor_autocolor_editor.lua` | Opens the rule editor; run again to close it. Needs ReaImGui 0.10+ (ReaPack). |
-| `eminor_autocolor_force.lua` | Applies every rule now, overwriting hand-set colours, as one undo point. |
-| `eminor_autocolor_toggle_track_colour.lua` | Turns automatic track colouring on or off. |
-| `eminor_autocolor_toggle_track_icon.lua` | Turns automatic track icons on or off. |
-| `eminor_autocolor_toggle_track_layout.lua` | Turns automatic TCP/MCP layouts on or off (off at first, as in SWS). |
-| `eminor_autocolor_toggle_marker_colour.lua` | Turns automatic marker colouring on or off. |
-| `eminor_autocolor_toggle_region_colour.lua` | Turns automatic region colouring on or off. |
-| `eminor_autocolor_toggle_timing_log.lua` | Prints how much UI time the engine uses to the console every 10 s. Off again after a restart. |
 
-All toggles show on/off on toolbars.
+The editor has everything else: the five on/off switches (the pills
+along the top), Force, Settings and Undo.
 
 To start the engine with REAPER, tick Settings › Startup in the editor.
 Or add this line to `<resource folder>/Scripts/__startup.lua` yourself,
@@ -65,9 +59,8 @@ priority order (top wins), and edited in place:
 
 Every change is saved at once and the engine applies it straight away.
 Cmd+Z and Cmd+Shift+Z (or the Undo and Redo buttons) undo rule edits.
-The pills along the top are the same five switches as the toggle
-actions. Settings holds the engine's fallback check interval, the icon
-thumbnail size, and "Start the engine with REAPER", which adds or removes
+The pills along the top are the five on/off switches. Settings holds the
+engine's fallback check interval, the icon thumbnail size, and "Start the engine with REAPER", which adds or removes
 one line in `Scripts/__startup.lua`.
 
 Settings › SWS has SWS's own five Auto Color switches (leave them off:
