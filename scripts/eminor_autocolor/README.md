@@ -16,11 +16,6 @@ by rules you set. It leaves changes you make by hand alone.
    starts with REAPER. Moving from SWS? Settings › SWS imports
    its rules and switches it off.
 
-Status: **phase 4**. Everything SWS Auto Color/Icon/Layout does works,
-rules are edited in the editor window, and Settings › SWS imports SWS's
-rules and switches SWS's own Auto Color off. Polish comes in phase 5;
-see the plan doc.
-
 ## Actions
 
 Only the editor needs loading (Action List › New action › Load
@@ -98,43 +93,3 @@ Matching follows SWS:
 Colour modes: `fixed`, `gradient`, `family` (similar shades from a range
 or a palette), `random` (stable per track), `parent`, `none` and
 `ignore`.
-
-## Changes you make by hand
-
-Each track, marker and region remembers what the engine last set on it
-(tracks in the track, markers and regions in the project). The engine
-only changes what is still as it left it, and undoes its own changes
-when a rule stops matching. Force overwrites everything.
-
-Two cases are taken over on first sight, so moving from SWS is smooth:
-
-- a track whose colour is exactly one a fixed rule gives;
-- a marker or region that a rule matches (SWS recoloured those on every
-  pass, so any colour on them came from SWS).
-
-Tracks SWS coloured with a gradient or random colour can't be told
-apart from hand colours. Run Force once to take them over.
-
-Unlike SWS, a colour you set by hand on a marker or region now stays.
-
-## Performance
-
-The engine runs on REAPER's UI thread, never the audio thread. Most ticks
-only compare a change counter and return. It looks at the tracks only
-when the project changes (or every half second as a fallback), never
-applies while recording, and waits 300 ms after Play, Record or Stop.
-To check the cost on your own projects, turn on the timing log.
-
-## Tests
-
-The logic that doesn't need REAPER is tested with plain Lua 5.4:
-
-```sh
-lua scripts/eminor_autocolor/tests/run.lua
-```
-
-`tests/fake_reaper.lua` stands in for the REAPER API in those tests, and
-`tests/fake_imgui.lua` for ReaImGui: it knows the real argument counts of
-every ReaImGui 0.10 function the editor calls, so a wrong name or call
-fails the tests. It can't show how the window looks.
-Anything that touches REAPER for real still needs checking in REAPER.
