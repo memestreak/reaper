@@ -408,4 +408,19 @@ function T.esc_closing_a_popover_leaves_the_editor_open()
   step()
 end
 
+function T.click_outside_closes_settings_but_a_click_inside_does_not()
+  local imgui, step = start()
+  step()
+  imgui.press("Settings")
+  step()
+  local hovered = true
+  rawset(imgui.ImGui, "IsMouseClicked", function() return true end)
+  rawset(imgui.ImGui, "IsWindowHovered", function() return hovered end)
+  step()
+  assert(imgui.opened["Settings##eminor_autocolor"], "a click inside closed it")
+  hovered = false
+  step()
+  assert(not imgui.opened["Settings##eminor_autocolor"], "a click outside didn't close it")
+end
+
 return T
