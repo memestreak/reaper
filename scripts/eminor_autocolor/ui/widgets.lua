@@ -152,6 +152,44 @@ function M.colour_cell(ImGui, ctx, id, rgb, size, picked)
   return clicked
 end
 
+-- A small trash-can button: handle, lid, and a tapered bin with three
+-- slots, drawn as shapes (no icon font needed). Returns true when clicked.
+function M.trash_button(ImGui, ctx, id, size)
+  local x, y = ImGui.GetCursorScreenPos(ctx)
+  local clicked = ImGui.InvisibleButton(ctx, id, size, size)
+  local hovered = ImGui.IsItemHovered(ctx)
+  local dl = ImGui.GetWindowDrawList(ctx)
+  local col = hovered and 0xE06060FF or M.DIM
+  local function px(f) return x + f * size end
+  local function py(f) return y + f * size end
+
+  ImGui.DrawList_AddRect(dl, px(0.40), py(0.12), px(0.60), py(0.24), col, size * 0.04, nil,
+      math.max(1, size * 0.06))                                                    -- handle
+  ImGui.DrawList_AddRectFilled(dl, px(0.18), py(0.22), px(0.82), py(0.30), col, size * 0.03)  -- lid
+
+  -- The bin narrows from top to bottom. It is drawn as four bars joined by
+  -- a strip at each end, so the gaps between the bars are the slots.
+  local top_y, bottom_y = 0.34, 0.88
+  local function x_at(across, down)
+    local t = (down - top_y) / (bottom_y - top_y)
+    local left = 0.23 + (0.31 - 0.23) * t
+    local right = 0.77 + (0.69 - 0.77) * t
+    return left + (right - left) * across
+  end
+  local function band(a, b, y0, y1)
+    ImGui.DrawList_AddQuadFilled(dl, px(x_at(a, y0)), py(y0), px(x_at(b, y0)), py(y0),
+        px(x_at(b, y1)), py(y1), px(x_at(a, y1)), py(y1), col)
+  end
+  local bar, gap = 0.16, 0.12
+  for i = 0, 3 do
+    local a = i * (bar + gap)
+    band(a, a + bar, top_y, bottom_y)
+  end
+  band(0, 1, top_y, top_y + 0.06)
+  band(0, 1, bottom_y - 0.06, bottom_y)
+  return clicked
+end
+
 -- Two-way "segmented" choice, as in the Family mock. Returns the new value.
 function M.segmented(ImGui, ctx, id, options, value)
   ImGui.PushID(ctx, id)

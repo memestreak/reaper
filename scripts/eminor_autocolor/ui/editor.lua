@@ -39,10 +39,17 @@ local RECENT_KEY = "editor.recent_colours"
 local RECENT_LIMIT = 8
 local SWATCH_W, SWATCH_H = 34, 16
 
+local FADED = 0.4  -- alpha of greyed-out rules and columns
+
 local GROUPS = {
-  { target = "track", title = "Tracks" },
-  { target = "region", title = "Regions" },
-  { target = "marker", title = "Markers" },
+  -- `switches`: the group is greyed while all of these are off; "Turn on"
+  -- turns on the first.
+  { target = "track", title = "Tracks", switches = { "track_colour", "track_icon", "track_layout" },
+    off_note = "Track colour, icon and layout are off." },
+  { target = "region", title = "Regions", switches = { "region_colour" },
+    off_note = "Region colour is off." },
+  { target = "marker", title = "Markers", switches = { "marker_colour" },
+    off_note = "Marker colour is off." },
 }
 
 local function log(message)
@@ -372,9 +379,25 @@ function M.run(ImGui)
       end)
     end
     ImGui.SetItemTooltip(ctx, "Add a " .. group.target .. " rule")
+
+    -- While the group's switches are all off, its rules do nothing: say so
+    -- and grey the list (it can still be edited).
+    local switches = settings.read_switches()
+    local off = true
+    for _, key in ipairs(group.switches) do
+      if switches[key] then off = false end
+    end
+    if off then
+      ImGui.SameLine(ctx)
+      ImGui.TextDisabled(ctx, group.off_note)
+      ImGui.SameLine(ctx)
+      if ImGui.SmallButton(ctx, "Turn on##on_" .. group.target) then
+        settings.set_switch(group.switches[1], true)
+      end
+    end
     if #rules == 0 then return end  -- just the title line: nothing to list
 
-    local columns = is_track and 9 or 6
+    local columns = is_track and 10 or 7
     local flags = ImGui.TableFlags_RowBg | ImGui.TableFlags_SizingFixedFit | ImGui.TableFlags_PadOuterX
     if not ImGui.BeginTable(ctx, "##table_" .. group.target, columns, flags) then return end
     -- Fixed columns are at least as wide as their title.
@@ -397,48 +420,69 @@ function M.run(ImGui)
       column("MCP layout", 90)
     end
     column("Matches", 34)
+    column("##delete", ImGui.GetFrameHeight(ctx))
     ImGui.TableHeadersRow(ctx)
 
     local row_h = math.max(ImGui.GetFrameHeight(ctx), is_track and thumb + 6 or 0)
+    -- Greyed (still editable): the whole list while the group's switches
+    -- are off, a row while its rule is off, and a track column while the
+    -- switch it belongs to is off.
+    local colour_off = is_track and not switches.track_colour
+    local icon_off = not switches.track_icon
+    local layout_off = not switches.track_layout
+    local function cell(dim, draw)
+      ImGui.TableNextColumn(ctx)
+      if dim then ImGui.PushStyleVar(ctx, ImGui.StyleVar_Alpha, FADED) end
+      draw()
+      if dim then ImGui.PopStyleVar(ctx) end
+    end
+
     for position, rule in ipairs(rules) do
       ImGui.PushID(ctx, rule.id)
       ImGui.TableNextRow(ctx, nil, row_h)
+      local row_off = off or not rule.enabled
 
-      ImGui.TableNextColumn(ctx)
-      draw_grip(rule, position, #rules, row_h)
+      cell(row_off, function() draw_grip(rule, position, #rules, row_h) end)
 
-      ImGui.TableNextColumn(ctx)
-      local changed, on = ImGui.Checkbox(ctx, "##on", rule.enabled)
-      if changed then set_field(rule.id, on and "Enable rule" or "Disable rule", "enabled", on) end
-      ImGui.SetItemTooltip(ctx, on and "Rule on" or "Rule off")
+      -- The rule's own on/off box stays bright, so it's easy to turn back on.
+      cell(off, function()
+        local changed, on = ImGui.Checkbox(ctx, "##on", rule.enabled)
+        if changed then set_field(rule.id, on and "Enable rule" or "Disable rule", "enabled", on) end
+        ImGui.SetItemTooltip(ctx, on and "Rule on" or "Rule off")
+      end)
 
-      ImGui.TableNextColumn(ctx)
-      draw_colour(rule)
-
-      ImGui.TableNextColumn(ctx)
-      draw_filter(rule)
-
-      ImGui.TableNextColumn(ctx)
-      ImGui.AlignTextToFramePadding(ctx)
-      ImGui.TextDisabled(ctx, W.describe(rule.colour))
+      cell(row_off or colour_off, function() draw_colour(rule) end)
+      cell(row_off, function() draw_filter(rule) end)
+      cell(row_off or colour_off, function()
+        ImGui.AlignTextToFramePadding(ctx)
+        ImGui.TextDisabled(ctx, W.describe(rule.colour))
+      end)
 
       if is_track then
-        ImGui.TableNextColumn(ctx)
-        if icons.thumbnail(ImGui, ctx, "##icon", rule.icon, thumb) then
-          ui.icon_target = rule.id
-          ui.open_request = "icons"
-        end
-        ImGui.SetItemTooltip(ctx, rule.icon == "" and "Choose an icon" or rule.icon)
-        ImGui.TableNextColumn(ctx)
-        draw_layout(rule, "tcp_layout", "tcp")
-        ImGui.TableNextColumn(ctx)
-        draw_layout(rule, "mcp_layout", "mcp")
+        cell(row_off or icon_off, function()
+          if icons.thumbnail(ImGui, ctx, "##icon", rule.icon, thumb) then
+            ui.icon_target = rule.id
+            ui.open_request = "icons"
+          end
+          ImGui.SetItemTooltip(ctx, rule.icon == "" and "Choose an icon" or rule.icon)
+        end)
+        cell(row_off or layout_off, function() draw_layout(rule, "tcp_layout", "tcp") end)
+        cell(row_off or layout_off, function() draw_layout(rule, "mcp_layout", "mcp") end)
       end
 
-      ImGui.TableNextColumn(ctx)
-      ImGui.AlignTextToFramePadding(ctx)
-      ImGui.TextDisabled(ctx, tostring(ui.counts[rule.id] or 0))
-      ImGui.SetItemTooltip(ctx, "Items this rule's filter matches")
+      cell(row_off, function()
+        ImGui.AlignTextToFramePadding(ctx)
+        ImGui.TextDisabled(ctx, tostring(ui.counts[rule.id] or 0))
+        ImGui.SetItemTooltip(ctx, "Items this rule's filter matches")
+      end)
+
+      cell(off, function()
+        if W.trash_button(ImGui, ctx, "##delete", ImGui.GetFrameHeight(ctx)) then
+          edit("Delete rule", function(doc) model_module.delete_rule(doc, rule.id) end)
+          if ui.selected == rule.id then ui.selected = nil end
+        end
+        ImGui.SetItemTooltip(ctx, "Delete rule (Cmd+Z brings it back)")
+      end)
 
       ImGui.PopID(ctx)
     end
@@ -449,9 +493,32 @@ function M.run(ImGui)
 
   local function draw_footer()
     ImGui.Separator(ctx)
-    local c = ui.coloured
-    ImGui.TextDisabled(ctx, string.format("%d rules · %d tracks, %d regions, %d markers coloured",
-        #model.doc.rules, c.track, c.region, c.marker))
+    -- What the rules colour now, for the kinds whose colour switch is on.
+    local c, switches = ui.coloured, settings.read_switches()
+    local counted, switched_off = {}, {}
+    for _, kind in ipairs({
+      { target = "track", key = "track_colour", word = "track", label = "Track colour" },
+      { target = "region", key = "region_colour", word = "region", label = "Region colour" },
+      { target = "marker", key = "marker_colour", word = "marker", label = "Marker colour" },
+    }) do
+      if switches[kind.key] then
+        local n = c[kind.target]
+        counted[#counted + 1] = n .. " " .. kind.word .. (n == 1 and "" or "s")
+      else
+        switched_off[#switched_off + 1] = kind.label
+      end
+    end
+    local n_rules = #model.doc.rules
+    local parts = { n_rules .. (n_rules == 1 and " rule" or " rules") }
+    if #counted > 0 then parts[#parts + 1] = "colouring " .. table.concat(counted, ", ") end
+    if #switched_off > 0 then
+      parts[#parts + 1] = table.concat(switched_off, " and ")
+          .. (#switched_off == 1 and " is off" or " are off")
+    end
+    ImGui.TextDisabled(ctx, table.concat(parts, " · "))
+    if #counted > 0 then
+      ImGui.SetItemTooltip(ctx, "Items a rule gives a colour to (hand-set colours are kept unless you Force).")
+    end
     if reaper.GetExtState(settings.SECTION, "engine_running") ~= "1" then
       ImGui.SameLine(ctx)
       ImGui.TextColored(ctx, W.WARN, "Engine is off: rules apply only when it runs.")
