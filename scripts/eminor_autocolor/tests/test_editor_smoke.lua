@@ -339,7 +339,9 @@ function T.switched_off_group_is_greyed_and_footer_says_so()
   end)
   step()
   assert(shown["Region colour is off."] and shown["Marker colour is off."])
-  assert(alpha_pushes == 2, "both lists should be greyed")
+  -- Regions (2 rules) and markers (1 rule): all 7 cells of each row.
+  -- Tracks (2 rules): only the TCP and MCP cells, as Track layout is off.
+  assert(alpha_pushes == 3 * 7 + 2 * 2, alpha_pushes)
   local footer
   for text in pairs(shown) do if text:match("^5 rules") then footer = text end end
   assert(footer == "5 rules · colouring 2 tracks · Region colour and Marker colour are off", footer)
@@ -349,4 +351,41 @@ function T.switched_off_group_is_greyed_and_footer_says_so()
   assert(fake.GetExtState("eminor_autocolor", "switch.region_colour") == "1")
 end
 
+function T.unchecked_rule_greys_its_row_but_not_its_box()
+  local imgui, step, file, fake = start()
+  fake.SetExtState("eminor_autocolor", "switch.track_layout", "1")
+  step()
+  imgui.press("##on")  -- the first rule's box (guitar)
+  step()
+  assert(find(file(), "g").enabled == false)
+
+  local dim, faded_cells, faded_boxes = false, 0, 0
+  local real_push, real_pop = imgui.ImGui.PushStyleVar, imgui.ImGui.PopStyleVar
+  local real_check = imgui.ImGui.Checkbox
+  rawset(imgui.ImGui, "PushStyleVar", function(ctx, var, ...)
+    real_push(ctx, var, ...)
+    if var == imgui.ImGui.StyleVar_Alpha then dim, faded_cells = true, faded_cells + 1 end
+  end)
+  rawset(imgui.ImGui, "PopStyleVar", function(ctx, ...) real_pop(ctx, ...) dim = false end)
+  rawset(imgui.ImGui, "Checkbox", function(ctx, label, value)
+    if dim then faded_boxes = faded_boxes + 1 end
+    return real_check(ctx, label, value)
+  end)
+  step()
+  assert(faded_boxes == 0, "the on/off box should stay bright")
+  -- Every switch is on, so only the unchecked rule's cells fade: all but
+  -- its on/off box and its delete button.
+  assert(faded_cells == 8, faded_cells)
+end
+
+function T.trash_button_deletes_the_row()
+  local imgui, step, file = start()
+  step()
+  imgui.press("##delete")  -- the first rule's (guitar)
+  step()
+  assert(#file() == 4 and not find(file(), "g"))
+  imgui.press("Undo")
+  step()
+  assert(find(file(), "g"))
+end
 return T

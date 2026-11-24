@@ -152,6 +152,27 @@ function M.colour_cell(ImGui, ctx, id, rgb, size, picked)
   return clicked
 end
 
+-- A small trash-can button, drawn with rectangles (no icon font needed).
+-- Returns true when clicked.
+function M.trash_button(ImGui, ctx, id, size)
+  local x, y = ImGui.GetCursorScreenPos(ctx)
+  local clicked = ImGui.InvisibleButton(ctx, id, size, size)
+  local hovered = ImGui.IsItemHovered(ctx)
+  local dl = ImGui.GetWindowDrawList(ctx)
+  if hovered then
+    ImGui.DrawList_AddRectFilled(dl, x, y, x + size, y + size, 0x48494AFF, 4)
+  end
+  local col = hovered and 0xE06060FF or M.DIM
+  local function px(f) return math.floor(f * size + 0.5) end
+  -- Handle, lid, body outline and two slats.
+  ImGui.DrawList_AddRectFilled(dl, x + px(0.40), y + px(0.18), x + px(0.60), y + px(0.24), col)
+  ImGui.DrawList_AddRectFilled(dl, x + px(0.24), y + px(0.24), x + px(0.76), y + px(0.30), col)
+  ImGui.DrawList_AddRect(dl, x + px(0.30), y + px(0.34), x + px(0.70), y + px(0.80), col, 2, nil, 1.5)
+  ImGui.DrawList_AddRectFilled(dl, x + px(0.43), y + px(0.42), x + px(0.43) + 1, y + px(0.72), col)
+  ImGui.DrawList_AddRectFilled(dl, x + px(0.57) - 1, y + px(0.42), x + px(0.57), y + px(0.72), col)
+  return clicked
+end
+
 -- Two-way "segmented" choice, as in the Family mock. Returns the new value.
 function M.segmented(ImGui, ctx, id, options, value)
   ImGui.PushID(ctx, id)
