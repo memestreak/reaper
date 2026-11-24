@@ -22,3 +22,6 @@ A collection of Lua action scripts for the Reaper DAW.
 - Refer to native actions by a named constant holding the command ID,
   with the Action List description in a trailing comment, rather than
   passing bare integers to `reaper.Main_OnCommand`.
+- `scripts/eminor_mcp_bridge/` (the MCP bridge) has tests too. Run them after
+  changing it: `lua scripts/eminor_mcp_bridge/tests/run.lua` and
+  `uv run scripts/eminor_mcp_bridge/mcp/test_server.py`.
