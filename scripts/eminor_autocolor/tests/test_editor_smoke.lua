@@ -134,7 +134,9 @@ function T.colour_popover_renders_every_mode_and_applies_a_palette_colour()
     imgui.combos["##mode"] = nil
     step()
   end
-  assert(find(file(), "g").colour.mode == "fixed")
+  -- Back on Fixed, the colour it had before is restored.
+  local back = find(file(), "g").colour
+  assert(back.mode == "fixed" and back.rgb == 0x000000, string.format("%06X", back.rgb or -1))
 end
 
 function T.family_palette_toggle_and_saved_palette()
@@ -153,7 +155,13 @@ function T.family_palette_toggle_and_saved_palette()
   imgui.press("Range")
   step()
   rule = find(file(), "g")
-  assert(rule.colour.base and not rule.colour.palette)
+  -- Range -> Palette -> Range keeps the base colour, hue and lightness.
+  assert(rule.colour.base == 0xBF0004 and not rule.colour.palette,
+      string.format("%06X", rule.colour.base or -1))
+  assert(rule.colour.hue == 8 and rule.colour.light == 0.12)
+  imgui.press("Palette")
+  step()
+  assert(find(file(), "g").colour.palette[1] == 0xEA8D20, "palette not restored")
 end
 
 function T.icon_browser_sets_icon()
@@ -388,4 +396,85 @@ function T.trash_button_deletes_the_row()
   step()
   assert(find(file(), "g"))
 end
+-- Esc closes an open popover, and that same Esc must not also close the
+-- editor (it is already closed by the time the editor looks at keys).
+function T.esc_closing_a_popover_leaves_the_editor_open()
+  local imgui, step = start()
+  step()
+  imgui.press("##swatch")
+  step()
+  assert(imgui.opened["colour"], "popover did not open")
+  step()
+  local real = imgui.ImGui.IsKeyPressed
+  rawset(imgui.ImGui, "IsKeyPressed", function(ctx, key, ...)
+    real(ctx, key, ...)
+    return key == imgui.ImGui.Key_Escape
+  end)
+  step()  -- Esc: the popover closes, and the editor keeps running
+  assert(not imgui.opened["colour"], "Esc did not close the popover")
+  rawset(imgui.ImGui, "IsKeyPressed", real)
+  step()
+end
+
+function T.click_outside_closes_settings_but_a_click_inside_does_not()
+  local imgui, step = start()
+  step()
+  imgui.press("Settings")
+  step()
+  local hovered = true
+  rawset(imgui.ImGui, "IsMouseClicked", function() return true end)
+  rawset(imgui.ImGui, "IsWindowHovered", function() return hovered end)
+  step()
+  assert(imgui.opened["Settings##eminor_autocolor"], "a click inside closed it")
+  hovered = false
+  step()
+  assert(not imgui.opened["Settings##eminor_autocolor"], "a click outside didn't close it")
+end
+
+function T.editor_adds_the_engine_action_and_starts_it()
+  local imgui, step, _, fake = start()
+  step()
+  -- Opening the editor added the engine script to the Action List.
+  local path, named = next(fake.scripts)
+  assert(path and path:match("eminor_autocolor_engine%.lua$"), tostring(path))
+  -- The engine isn't running, so the footer offers to start it.
+  imgui.press("Start engine")
+  step()
+  assert(fake.commands_run[1] == named, tostring(fake.commands_run[1]))
+end
+
+function T.first_start_also_starts_the_engine_with_reaper_once()
+  local startup = require("lib.startup")
+  local imgui, step, _, fake = start()
+  step()
+  assert(not startup.is_enabled())
+  imgui.press("Start engine")
+  step()
+  assert(startup.is_enabled(), "the first start should tick Settings › Startup")
+  -- Untick Startup; a later start leaves it off.
+  assert(startup.set_enabled(false))
+  imgui.press("Start engine")
+  step()
+  assert(#fake.commands_run == 2, tostring(#fake.commands_run))
+  assert(not startup.is_enabled(), "a later start must not tick Startup again")
+end
+
+function T.startup_setting_uses_the_added_engine_action()
+  local imgui, step, _, fake = start()
+  step()
+  imgui.press("Settings")
+  step()
+  imgui.press("Startup")
+  step()
+  imgui.press("##startup")
+  step()
+  imgui.press("OK")
+  step()
+  local _, named = next(fake.scripts)
+  local file = io.open(fake.GetResourcePath() .. "/Scripts/__startup.lua")
+  local text = file and file:read("a") or ""
+  if file then file:close() end
+  assert(text:find('NamedCommandLookup("' .. named .. '")', 1, true), text)
+end
+
 return T

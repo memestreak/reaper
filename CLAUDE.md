@@ -1,13 +1,12 @@
 # Reaper scripts
 
-A personal collection of Lua action scripts for the Reaper DAW.
+A collection of Lua action scripts for the Reaper DAW.
 
 ## Git
 
 - Committing directly to `main` is fine in this repo. It overrides the
-  global "always use a separate branch" rule -- these are small personal
-  scripts with no code review step. Use a branch only when asked, or when
-  a change is large enough to want one.
+  global "always use a separate branch" rule. Use a branch only when asked, or
+  when a change is large enough to want one.
 - The remote is named `github`, not `origin`. Use `git push github main`.
 
 ## Lua scripts
@@ -19,6 +18,7 @@ A personal collection of Lua action scripts for the Reaper DAW.
   only, and behavior needs testing in Reaper itself.
 - `scripts/eminor_autocolor/` has plain-Lua tests for its REAPER-free
   logic. Run them after changing it: `lua scripts/eminor_autocolor/tests/run.lua`.
+  Read `scripts/eminor_autocolor/AGENTS.md` before working on that script.
 - Refer to native actions by a named constant holding the command ID,
   with the Action List description in a trailing comment, rather than
   passing bare integers to `reaper.Main_OnCommand`.

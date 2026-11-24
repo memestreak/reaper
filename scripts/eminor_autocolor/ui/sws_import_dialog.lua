@@ -112,7 +112,7 @@ function M.draw(ImGui, ctx, context)
     ImGui.SameLine(ctx)
   end
   if ImGui.Button(ctx, can_import and "Cancel" or "Close", 80) then close = true end
-  if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then close = true end
+  if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) or W.clicked_outside(ImGui, ctx) then close = true end
 
   if close or not open then
     ImGui.CloseCurrentPopup(ctx)

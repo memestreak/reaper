@@ -115,6 +115,16 @@ function M.set_timing_log(on)
   bump("switches_version")
 end
 
+-- Set once the first Start engine press has ticked Settings › Startup,
+-- so a later untick is never undone.
+function M.startup_auto_done()
+  return get("startup_auto_done") == "1"
+end
+
+function M.mark_startup_auto_done()
+  set("startup_auto_done", "1", PERSIST)
+end
+
 function M.set_engine_running(running)
   set("engine_running", running and "1" or "", false)
 end

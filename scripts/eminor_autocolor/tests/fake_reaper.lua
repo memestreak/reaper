@@ -162,7 +162,25 @@ function M.install(specs, marker_specs, options)
   fake.sws = nil
   fake.commands_run = {}
   local id_of, name_of, next_id = {}, {}, 50000
+  -- Scripts added to the Action List: path -> named ID ("RS1", ...).
+  fake.scripts = {}
+  local script_ids, script_names, next_script_id = {}, {}, 90000
+  function fake.AddRemoveReaScript(add, section, path, commit)
+    assert(add and section == 0, "unexpected AddRemoveReaScript")
+    if not fake.scripts[path] then
+      next_script_id = next_script_id + 1
+      local named = "_RS" .. next_script_id
+      fake.scripts[path] = named
+      script_ids[named], script_names[next_script_id] = next_script_id, named
+    end
+    return script_ids[fake.scripts[path]]
+  end
+  function fake.ReverseNamedCommandLookup(id)
+    local named = script_names[id] or name_of[id]
+    return named and named:sub(2) or nil
+  end
   function fake.NamedCommandLookup(name)
+    if script_ids[name] then return script_ids[name] end
     if not (fake.sws and fake.sws[name]) then return 0 end
     if not id_of[name] then
       id_of[name], name_of[next_id] = next_id, name
@@ -175,6 +193,10 @@ function M.install(specs, marker_specs, options)
     return name and fake.sws[name] or -1
   end
   function fake.Main_OnCommand(id, flag)
+    if script_names[id] then
+      fake.commands_run[#fake.commands_run + 1] = script_names[id]
+      return
+    end
     local name = assert(name_of[id], "unknown command " .. tostring(id))
     fake.commands_run[#fake.commands_run + 1] = name
     fake.sws[name] = 1 - fake.sws[name]

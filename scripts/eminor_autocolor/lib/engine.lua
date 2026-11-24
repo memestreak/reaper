@@ -25,7 +25,7 @@ local OPTION_TOGGLE_OFF = 8
 
 
 local function log(message)
-  reaper.ShowConsoleMsg("eminor Auto Color: " .. message .. "\n")
+  reaper.ShowConsoleMsg("Eminor Auto Color: " .. message .. "\n")
 end
 
 local function report_problems(problems)
@@ -52,7 +52,7 @@ end
 -- in (skipping SWS's unused "(name)" placeholder); otherwise the file
 -- starts empty. SWS's on/off switches are not copied: switching SWS off
 -- is part of moving over, so they are usually off by now.
-local function create_rules_file(path)
+function M.create_rules_file(path)
   local sep = package.config:sub(1, 1)
   local folder = path:match("^(.*)" .. sep)
   reaper.RecursiveCreateDirectory(folder, 0)
@@ -77,7 +77,7 @@ end
 
 function M.run()
   if not reaper.set_action_options then
-    reaper.MB("eminor Auto Color needs REAPER 7.03 or newer.", "eminor Auto Color", 0)
+    reaper.MB("Eminor Auto Color needs REAPER 7.03 or newer.", "Eminor Auto Color", 0)
     return
   end
   reaper.set_action_options(OPTION_TERMINATE_ON_RELAUNCH | OPTION_TOGGLE_ON)
@@ -92,7 +92,7 @@ function M.run()
 
   local path = rules_module.file_path()
   if not rules_module.read_file(path) then
-    create_rules_file(path)
+    M.create_rules_file(path)
   end
 
   local rules, rules_text = {}, nil

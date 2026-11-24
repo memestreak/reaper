@@ -91,7 +91,8 @@ function M.draw(ImGui, ctx, context)
   ImGui.EndDisabled(ctx)
 
   ImGui.Spacing(ctx)
-  if ImGui.Button(ctx, "Close", 80) or ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) or not open then
+  if ImGui.Button(ctx, "Close", 80) or ImGui.IsKeyPressed(ctx, ImGui.Key_Escape)
+      or W.clicked_outside(ImGui, ctx) or not open then
     ImGui.CloseCurrentPopup(ctx)
     state = nil
   end

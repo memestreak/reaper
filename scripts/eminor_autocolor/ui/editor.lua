@@ -19,6 +19,8 @@
 
 local rules_module = require("lib.rules")
 local settings = require("lib.settings")
+local engine = require("lib.engine")
+local engine_action = require("lib.engine_action")
 local sws_switches = require("lib.sws_switches")
 local prefs = require("lib.prefs")
 local match = require("lib.match")
@@ -32,7 +34,7 @@ local palettes_dialog = require("ui.palettes_dialog")
 
 local M = {}
 
-local TITLE = "eminor Auto Color"
+local TITLE = "Eminor Auto Color"
 local FILE_CHECK_SECONDS = 1
 local COUNT_CHECK_SECONDS = 1
 local RECENT_KEY = "editor.recent_colours"
@@ -53,7 +55,7 @@ local GROUPS = {
 }
 
 local function log(message)
-  reaper.ShowConsoleMsg("eminor Auto Color editor: " .. message .. "\n")
+  reaper.ShowConsoleMsg("Eminor Auto Color editor: " .. message .. "\n")
 end
 
 
@@ -123,9 +125,18 @@ function M.run(ImGui)
   local path = rules_module.file_path()
   local last_text = rules_module.read_file(path)
   if not last_text then
-    reaper.MB("No rules file yet. Run the eminor Auto Color engine once to create it.", TITLE, 0)
-    return
+    -- First run: create the rules file (copying SWS's rules, if any), as
+    -- the engine would.
+    engine.create_rules_file(path)
+    last_text = rules_module.read_file(path)
+    if not last_text then
+      reaper.MB("Couldn't create the rules file:\n" .. path, TITLE, 0)
+      return
+    end
   end
+  -- Make sure the engine is in the Action List, so it can be started from
+  -- here, from toolbars, and from Settings › Startup.
+  engine_action.command_id()
   local rules, problems, palettes = rules_module.parse(last_text)
   for _, p in ipairs(problems) do log(p) end
   local model = model_module.new(rules, palettes)
@@ -143,6 +154,11 @@ function M.run(ImGui)
     project_count = nil, next_count_check = 0, next_file_check = 0,
     sws_on = {}, next_sws_check = 0,  -- SWS's own switches, read once a second
   }
+
+  -- Esc closes the open popover (and only it: see handle_keys).
+  local function close_popup_on_esc()
+    if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then ImGui.CloseCurrentPopup(ctx) end
+  end
 
   -- Saving -----------------------------------------------------------------
 
@@ -259,6 +275,7 @@ function M.run(ImGui)
     if ImGui.ArrowButton(ctx, "##specials", ImGui.Dir_Down) then ImGui.OpenPopup(ctx, "specials") end
     ImGui.SetItemTooltip(ctx, "Special filters")
     if ImGui.BeginPopup(ctx, "specials") then
+      close_popup_on_esc()
       local names = {}
       local source = rule.target == "track" and match.TRACK_FILTERS or match.MARKER_FILTERS
       for name in pairs(source) do names[#names + 1] = name end
@@ -280,6 +297,7 @@ function M.run(ImGui)
     end
     ImGui.SetItemTooltip(ctx, W.describe(rule.colour))
     if ImGui.BeginPopup(ctx, "colour") then
+      close_popup_on_esc()
       if ui.popover and ui.popover.rule_id == rule.id then
         colour_popover.draw(ImGui, ctx, rule, ui.popover, {
           palettes = model.doc.palettes,
@@ -519,9 +537,14 @@ function M.run(ImGui)
     if #counted > 0 then
       ImGui.SetItemTooltip(ctx, "Items a rule gives a colour to (hand-set colours are kept unless you Force).")
     end
-    if reaper.GetExtState(settings.SECTION, "engine_running") ~= "1" then
+    if not engine_action.is_running() then
       ImGui.SameLine(ctx)
       ImGui.TextColored(ctx, W.WARN, "Engine is off: rules apply only when it runs.")
+      ImGui.SameLine(ctx)
+      if ImGui.SmallButton(ctx, "Start engine") then
+        local ok, err = engine_action.start()
+        if not ok then log(err) end
+      end
     end
     -- SWS doing the same job undoes ours (and the other way round).
     local switches, clashes = settings.read_switches(), {}
@@ -547,10 +570,15 @@ function M.run(ImGui)
   end
 
   local function handle_keys()
-    if ImGui.IsAnyItemActive(ctx) or ImGui.IsPopupOpen(ctx, "", ImGui.PopupFlags_AnyPopup) then return end
+    -- A popup or a field being typed in gets keys first. Esc closes them
+    -- before this runs, so also look at whether one was open last frame:
+    -- otherwise the same Esc would close the editor too.
+    local busy = ImGui.IsAnyItemActive(ctx) or ImGui.IsPopupOpen(ctx, "", ImGui.PopupFlags_AnyPopup)
+    local was_busy = ui.busy_last_frame
+    ui.busy_last_frame = busy
+    if busy or was_busy then return end
     if not ImGui.IsWindowFocused(ctx, ImGui.FocusedFlags_RootAndChildWindows) then return end
-    -- Esc closes the editor (only when nothing else is using it: a field
-    -- being typed in or a popup gets Esc first).
+    -- Esc closes the editor when nothing else is using it.
     if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then ui.close_requested = true return end
     local ctrl, shift, alt = ImGui.Mod_Ctrl, ImGui.Mod_Shift, ImGui.Mod_Alt
     if ImGui.IsKeyChordPressed(ctx, ctrl | shift | ImGui.Key_Z) then redo() return end
@@ -591,6 +619,7 @@ function M.run(ImGui)
     })
 
     if ImGui.BeginPopup(ctx, "Icons##browser") then
+      close_popup_on_esc()
       local rule = ui.icon_target and model_module.find(model.doc, ui.icon_target)
       if rule then
         local chosen = icons.browser(ImGui, ctx, ui.icon_state, rule.icon)
