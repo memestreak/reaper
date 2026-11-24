@@ -53,7 +53,7 @@ local CONSTANTS = {
   "Col_TitleBg", "Col_TitleBgActive", "Col_WindowBg", "ColorEditFlags_DisplayHex",
   "ColorEditFlags_DisplayRGB", "ColorEditFlags_NoAlpha", "ColorEditFlags_NoSidePreview",
   "ColorEditFlags_PickerHueBar", "Cond_Always", "Cond_Appearing", "Cond_FirstUseEver", "Dir_Down",
-  "FocusedFlags_RootAndChildWindows", "HoveredFlags_RootAndChildWindows", "Key_Backspace", "Key_Delete", "Key_DownArrow", "Key_Escape",
+  "FocusedFlags_RootAndChildWindows", "HoveredFlags_RootAndChildWindows", "HoveredFlags_AllowWhenBlockedByActiveItem", "Key_Backspace", "Key_Delete", "Key_DownArrow", "Key_Escape",
   "Key_UpArrow", "Key_Z", "Mod_Alt", "Mod_Ctrl", "Mod_Shift", "MouseButton_Left",
   "PopupFlags_AnyPopup", "SelectableFlags_AllowOverlap", "SelectableFlags_SpanAllColumns",
   "StyleVar_Alpha", "StyleVar_CellPadding", "StyleVar_ChildRounding", "StyleVar_FramePadding", "StyleVar_FrameRounding",

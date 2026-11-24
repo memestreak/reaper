@@ -19,6 +19,8 @@
 
 local rules_module = require("lib.rules")
 local settings = require("lib.settings")
+local engine = require("lib.engine")
+local engine_action = require("lib.engine_action")
 local sws_switches = require("lib.sws_switches")
 local prefs = require("lib.prefs")
 local match = require("lib.match")
@@ -32,7 +34,7 @@ local palettes_dialog = require("ui.palettes_dialog")
 
 local M = {}
 
-local TITLE = "eminor Auto Color"
+local TITLE = "Eminor Auto Color"
 local FILE_CHECK_SECONDS = 1
 local COUNT_CHECK_SECONDS = 1
 local RECENT_KEY = "editor.recent_colours"
@@ -53,7 +55,7 @@ local GROUPS = {
 }
 
 local function log(message)
-  reaper.ShowConsoleMsg("eminor Auto Color editor: " .. message .. "\n")
+  reaper.ShowConsoleMsg("Eminor Auto Color editor: " .. message .. "\n")
 end
 
 
@@ -123,9 +125,18 @@ function M.run(ImGui)
   local path = rules_module.file_path()
   local last_text = rules_module.read_file(path)
   if not last_text then
-    reaper.MB("No rules file yet. Run the eminor Auto Color engine once to create it.", TITLE, 0)
-    return
+    -- First run: create the rules file (copying SWS's rules, if any), as
+    -- the engine would.
+    engine.create_rules_file(path)
+    last_text = rules_module.read_file(path)
+    if not last_text then
+      reaper.MB("Couldn't create the rules file:\n" .. path, TITLE, 0)
+      return
+    end
   end
+  -- Make sure the engine is in the Action List, so it can be started from
+  -- here, from toolbars, and from Settings › Startup.
+  engine_action.command_id()
   local rules, problems, palettes = rules_module.parse(last_text)
   for _, p in ipairs(problems) do log(p) end
   local model = model_module.new(rules, palettes)
@@ -526,9 +537,14 @@ function M.run(ImGui)
     if #counted > 0 then
       ImGui.SetItemTooltip(ctx, "Items a rule gives a colour to (hand-set colours are kept unless you Force).")
     end
-    if reaper.GetExtState(settings.SECTION, "engine_running") ~= "1" then
+    if not engine_action.is_running() then
       ImGui.SameLine(ctx)
       ImGui.TextColored(ctx, W.WARN, "Engine is off: rules apply only when it runs.")
+      ImGui.SameLine(ctx)
+      if ImGui.SmallButton(ctx, "Start engine") then
+        local ok, err = engine_action.start()
+        if not ok then log(err) end
+      end
     end
     -- SWS doing the same job undoes ours (and the other way round).
     local switches, clashes = settings.read_switches(), {}

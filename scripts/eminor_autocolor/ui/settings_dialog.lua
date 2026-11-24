@@ -13,6 +13,7 @@
 
 local prefs = require("lib.prefs")
 local startup = require("lib.startup")
+local engine_action = require("lib.engine_action")
 local settings = require("lib.settings")
 local sws_switches = require("lib.sws_switches")
 local sws_import_dialog = require("ui.sws_import_dialog")
@@ -64,8 +65,7 @@ local function save()
   prefs.write("appearance", staged.appearance)
   state.message = nil
   if staged.startup.enabled ~= state.saved.startup.enabled then
-    local named = reaper.GetExtState(settings.SECTION, "toggle_cmd." .. settings.ENGINE)
-    if named == "" then named = startup.find_engine_command() end
+    local named = engine_action.named_command()
     local ok, err = startup.set_enabled(staged.startup.enabled, named)
     if not ok then
       state.message = err
@@ -149,7 +149,7 @@ local function draw_sws(ImGui, ctx)
       end
     end
     help(ImGui, ctx, "SWS's own Auto Color switches. Leave them off: when SWS and "
-        .. "eminor Auto Color both colour the same things, they undo each other's work.")
+        .. "Eminor Auto Color both colour the same things, they undo each other's work.")
   end
   ImGui.Spacing(ctx)
   ImGui.Separator(ctx)

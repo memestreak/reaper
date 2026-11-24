@@ -192,9 +192,14 @@ end
 
 -- True when the mouse was clicked outside the current window (and its
 -- child windows): dialogs close on it, the same as Esc.
+-- AllowWhenBlockedByActiveItem matters: a click on a button or list entry
+-- makes it the active item that same frame, and without the flag
+-- IsWindowHovered then reports false, so the click looked like it was outside.
 function M.clicked_outside(ImGui, ctx)
+  local inside = ImGui.HoveredFlags_RootAndChildWindows
+      | ImGui.HoveredFlags_AllowWhenBlockedByActiveItem
   return ImGui.IsMouseClicked(ctx, ImGui.MouseButton_Left)
-      and not ImGui.IsWindowHovered(ctx, ImGui.HoveredFlags_RootAndChildWindows)
+      and not ImGui.IsWindowHovered(ctx, inside)
 end
 
 -- Two-way "segmented" choice, as in the Family mock. Returns the new value.

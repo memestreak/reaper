@@ -9,7 +9,17 @@
 
 local M = {}
 
-M.MARKER = "-- eminor Auto Color: start the engine (added by its editor)"
+M.MARKER = "-- Eminor Auto Color: start the engine (added by its editor)"
+-- Markers written by earlier versions, still recognised and removed.
+local OLD_MARKERS = { "-- eminor Auto Color: start the engine (added by its editor)" }
+
+local function is_marker(line)
+  if line == M.MARKER then return true end
+  for _, old in ipairs(OLD_MARKERS) do
+    if line == old then return true end
+  end
+  return false
+end
 
 local function line_for(named_command)
   return string.format('reaper.Main_OnCommand(reaper.NamedCommandLookup("_%s"), 0)', named_command)
@@ -17,7 +27,10 @@ end
 
 -- True when the text has our marked block.
 function M.has_line(text)
-  return (text or ""):find(M.MARKER, 1, true) ~= nil
+  for line in (text or ""):gmatch("[^\n]+") do
+    if is_marker(line) then return true end
+  end
+  return false
 end
 
 -- Removes our marked block (the marker comment and the line after it).
@@ -26,7 +39,7 @@ function M.remove_line(text)
   for line in ((text or "") .. "\n"):gmatch("([^\n]*)\n") do
     if skip_next then
       skip_next = false
-    elseif line == M.MARKER then
+    elseif is_marker(line) then
       skip_next = true
     else
       out[#out + 1] = line
@@ -93,7 +106,7 @@ function M.set_enabled(on, named_command)
   local new_text
   if on then
     if not named_command then
-      return false, "Couldn't find the engine action in the Action List. Load "
+      return false, "Couldn't add the engine to the Action List. Load "
           .. "eminor_autocolor_engine.lua there (New action › Load ReaScript), then try again."
     end
     new_text = M.add_line(text, named_command)

@@ -15,9 +15,19 @@ end
 function T.adding_twice_keeps_one_line_with_the_new_id()
   local once = startup.add_line("", "RSold")
   local twice = startup.add_line(once, "RSnew")
-  local _, count = twice:gsub("eminor Auto Color", "")
+  local _, count = twice:gsub("Eminor Auto Color", "")
   assert(count == 1)
   assert(twice:find("RSnew", 1, true) and not twice:find("RSold", 1, true))
+end
+
+function T.recognises_and_replaces_the_old_lowercase_marker()
+  local old = "x = 1\n-- eminor Auto Color: start the engine (added by its editor)\n"
+      .. 'reaper.Main_OnCommand(reaper.NamedCommandLookup("_RSold"), 0)\n'
+  assert(startup.has_line(old))
+  assert(startup.remove_line(old) == "x = 1\n")
+  local new = startup.add_line(old, "RSnew")
+  assert(not new:find("eminor Auto Color", 1, true) and not new:find("RSold", 1, true))
+  assert(new:find("Eminor Auto Color", 1, true))
 end
 
 function T.handles_a_missing_final_newline()

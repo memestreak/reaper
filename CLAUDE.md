@@ -19,6 +19,7 @@ A personal collection of Lua action scripts for the Reaper DAW.
   only, and behavior needs testing in Reaper itself.
 - `scripts/eminor_autocolor/` has plain-Lua tests for its REAPER-free
   logic. Run them after changing it: `lua scripts/eminor_autocolor/tests/run.lua`.
+  Read `scripts/eminor_autocolor/AGENTS.md` before working on that script.
 - Refer to native actions by a named constant holding the command ID,
   with the Action List description in a trailing comment, rather than
   passing bare integers to `reaper.Main_OnCommand`.

@@ -1,42 +1,33 @@
-# eminor Auto Color
+# Eminor Auto Color
 
 A replacement for SWS Auto Color/Icon/Layout, written as Lua ReaScripts.
 It colours tracks, markers and regions, and sets track icons and layouts,
 by rules you set. It leaves changes you make by hand alone.
 
-![The eminor Auto Color editor](docs/editor.png)
+![The rule editor](docs/editor.png)
 
-Status: **phase 4**. Everything SWS Auto Color/Icon/Layout does works,
-rules are edited in the editor window, and Settings › SWS imports SWS's
-rules and switches SWS's own Auto Color off. Polish comes in phase 5;
-see the plan doc.
+## Quick start
+
+1. Install ReaImGui from ReaPack (Extensions › ReaPack › Browse packages).
+2. Load `eminor_autocolor_editor.lua` in the Action List (New action ›
+   Load ReaScript) and run it. It adds the engine to the Action List
+   itself; press **Start engine** at the bottom of the editor.
+3. Add rules with **+**. From then on the engine starts with REAPER
+   (untick Settings › Startup to stop that). Moving from SWS?
+   Settings › SWS imports its rules and switches it off.
 
 ## Actions
 
-Load each with Action List › New action › Load ReaScript.
+Only the editor needs loading (Action List › New action › Load
+ReaScript): it adds the engine action the first time it opens.
 
 | Script | What it does |
 | --- | --- |
-| `eminor_autocolor_engine.lua` | Starts the background engine; run again to stop it. Shows on/off on toolbars. |
+| `eminor_autocolor_engine.lua` | The background engine that applies the rules; run again to stop it. Shows on/off on toolbars. Started by the editor's **Start engine** button or by Settings › Startup. |
 | `eminor_autocolor_editor.lua` | Opens the rule editor; run again to close it. Needs ReaImGui 0.10+ (ReaPack). |
-| `eminor_autocolor_force.lua` | Applies every rule now, overwriting hand-set colours, as one undo point. |
-| `eminor_autocolor_toggle_track_colour.lua` | Turns automatic track colouring on or off. |
-| `eminor_autocolor_toggle_track_icon.lua` | Turns automatic track icons on or off. |
-| `eminor_autocolor_toggle_track_layout.lua` | Turns automatic TCP/MCP layouts on or off (off at first, as in SWS). |
-| `eminor_autocolor_toggle_marker_colour.lua` | Turns automatic marker colouring on or off. |
-| `eminor_autocolor_toggle_region_colour.lua` | Turns automatic region colouring on or off. |
-| `eminor_autocolor_toggle_timing_log.lua` | Prints how much UI time the engine uses to the console every 10 s. Off again after a restart. |
 
-All toggles show on/off on toolbars.
-
-To start the engine with REAPER, tick Settings › Startup in the editor.
-Or add this line to `<resource folder>/Scripts/__startup.lua` yourself,
-using the command ID the Action List shows for the engine script
-(right-click › Copy selected action command ID):
-
-```lua
-reaper.Main_OnCommand(reaper.NamedCommandLookup("_RS..."), 0)
-```
+The editor has everything else: the five on/off switches (the pills
+along the top), Force, Settings and Undo.
 
 ## The editor
 
@@ -56,10 +47,10 @@ priority order (top wins), and edited in place:
 
 Every change is saved at once and the engine applies it straight away.
 Cmd+Z and Cmd+Shift+Z (or the Undo and Redo buttons) undo rule edits.
-The pills along the top are the same five switches as the toggle
-actions. Settings holds the engine's fallback check interval, the icon
-thumbnail size, and "Start the engine with REAPER", which adds or removes
-one line in `Scripts/__startup.lua`.
+The pills along the top are the five on/off switches. Settings holds the
+engine's fallback check interval, the icon thumbnail size, and "Start
+the engine with REAPER", which adds or removes one line in
+`Scripts/__startup.lua`.
 
 Settings › SWS has SWS's own five Auto Color switches (leave them off:
 SWS and this script would undo each other's colours) and **Import rules
@@ -71,7 +62,7 @@ warns while SWS is switched on for something this script also does.
 ## Rules
 
 Rules live in `<resource folder>/Data/eminor_autocolor/rules.lua`, outside
-this repository. The first time the engine runs it creates the file,
+this repository. The first time the editor or engine runs it creates the file,
 copying your SWS rules from `sws-autocoloricon.ini` if there are any.
 The editor writes it; hand edits also work and are picked up within two
 seconds. The format is described at the top of `lib/rules.lua`.
@@ -94,43 +85,3 @@ Matching follows SWS:
 Colour modes: `fixed`, `gradient`, `family` (similar shades from a range
 or a palette), `random` (stable per track), `parent`, `none` and
 `ignore`.
-
-## Changes you make by hand
-
-Each track, marker and region remembers what the engine last set on it
-(tracks in the track, markers and regions in the project). The engine
-only changes what is still as it left it, and undoes its own changes
-when a rule stops matching. Force overwrites everything.
-
-Two cases are taken over on first sight, so moving from SWS is smooth:
-
-- a track whose colour is exactly one a fixed rule gives;
-- a marker or region that a rule matches (SWS recoloured those on every
-  pass, so any colour on them came from SWS).
-
-Tracks SWS coloured with a gradient or random colour can't be told
-apart from hand colours. Run Force once to take them over.
-
-Unlike SWS, a colour you set by hand on a marker or region now stays.
-
-## Performance
-
-The engine runs on REAPER's UI thread, never the audio thread. Most ticks
-only compare a change counter and return. It looks at the tracks only
-when the project changes (or every half second as a fallback), never
-applies while recording, and waits 300 ms after Play, Record or Stop.
-To check the cost on your own projects, turn on the timing log.
-
-## Tests
-
-The logic that doesn't need REAPER is tested with plain Lua 5.4:
-
-```sh
-lua scripts/eminor_autocolor/tests/run.lua
-```
-
-`tests/fake_reaper.lua` stands in for the REAPER API in those tests, and
-`tests/fake_imgui.lua` for ReaImGui: it knows the real argument counts of
-every ReaImGui 0.10 function the editor calls, so a wrong name or call
-fails the tests. It can't show how the window looks.
-Anything that touches REAPER for real still needs checking in REAPER.

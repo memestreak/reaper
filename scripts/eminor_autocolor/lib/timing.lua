@@ -2,7 +2,8 @@
 --
 -- Measures how much of REAPER's UI time the engine uses, so the "never
 -- noticeable" promise can be checked rather than assumed. When the timing
--- log is on (eminor_autocolor_toggle_timing_log.lua), the engine prints a
+-- log is on (ExtState "eminor_autocolor" / "timing_log" = "1"; there is no
+-- action for it at the moment), the engine prints a
 -- summary line to the ReaScript console every REPORT_SECONDS.
 --
 -- REAPER redraws at about 30 frames a second, so a frame has about 33 ms.
