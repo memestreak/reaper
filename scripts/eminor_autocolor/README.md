@@ -29,15 +29,6 @@ ReaScript): it adds the engine action the first time it opens.
 The editor has everything else: the five on/off switches (the pills
 along the top), Force, Settings and Undo.
 
-To start the engine with REAPER, tick Settings › Startup in the editor.
-Or add this line to `<resource folder>/Scripts/__startup.lua` yourself,
-using the command ID the Action List shows for the engine script
-(right-click › Copy selected action command ID):
-
-```lua
-reaper.Main_OnCommand(reaper.NamedCommandLookup("_RS..."), 0)
-```
-
 ## The editor
 
 Rules are grouped into Tracks, Regions and Markers, each in its own
@@ -57,8 +48,9 @@ priority order (top wins), and edited in place:
 Every change is saved at once and the engine applies it straight away.
 Cmd+Z and Cmd+Shift+Z (or the Undo and Redo buttons) undo rule edits.
 The pills along the top are the five on/off switches. Settings holds the
-engine's fallback check interval, the icon thumbnail size, and "Start the engine with REAPER", which adds or removes
-one line in `Scripts/__startup.lua`.
+engine's fallback check interval, the icon thumbnail size, and "Start
+the engine with REAPER", which adds or removes one line in
+`Scripts/__startup.lua`.
 
 Settings › SWS has SWS's own five Auto Color switches (leave them off:
 SWS and this script would undo each other's colours) and **Import rules
