@@ -1,17 +1,17 @@
 # eminor MCP Bridge
 
-Lets Claude work inside REAPER: read the project, write MIDI, change the
+Lets an AI assistant work inside REAPER: read the project, write MIDI, change the
 time signature, and anything else a ReaScript can do.
 
 It has two halves:
 
 - `eminor_mcp_bridge.lua` is a REAPER action. While it runs, it watches a
   folder for a Lua request, runs it, and writes back the result.
-- `mcp/server.py` is an MCP server. It gives an MCP client (Claude Code,
-  Claude Desktop) two tools, and passes their requests to that folder.
+- `mcp/server.py` is an MCP server. It gives any MCP client two tools, and
+  passes their requests to that folder.
 
 ```
-Claude  <-- MCP -->  server.py  <-- files -->  eminor_mcp_bridge.lua  -->  REAPER
+MCP client  <-- MCP -->  server.py  <-- files -->  eminor_mcp_bridge.lua  -->  REAPER
 ```
 
 ## Setup
@@ -20,8 +20,28 @@ Claude  <-- MCP -->  server.py  <-- files -->  eminor_mcp_bridge.lua  -->  REAPE
    and pick `eminor_mcp_bridge.lua`. Run it. Its toggle state shows that it
    is on. To have it start with REAPER, call it from `__startup.lua` or
    use SWS's startup action.
-2. Register the server with your MCP client. It needs
-   [uv](https://docs.astral.sh/uv/). For Claude Code:
+2. Register the server with your MCP client. It is a standard stdio
+   server and needs [uv](https://docs.astral.sh/uv/). The command to
+   run is:
+
+   ```
+   uv run /path/to/scripts/eminor_mcp_bridge/mcp/server.py
+   ```
+
+   Most clients take that as a JSON entry:
+
+   ```json
+   {
+     "mcpServers": {
+       "reaper": {
+         "command": "uv",
+         "args": ["run", "/path/to/scripts/eminor_mcp_bridge/mcp/server.py"]
+       }
+     }
+   }
+   ```
+
+   Some have a command for it, for example Claude Code:
 
    ```
    claude mcp add --scope user reaper -- uv run /path/to/scripts/eminor_mcp_bridge/mcp/server.py

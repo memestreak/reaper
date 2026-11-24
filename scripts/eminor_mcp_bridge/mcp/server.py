@@ -4,7 +4,7 @@
 # ///
 """MCP server for the eminor MCP Bridge.
 
-Lets an MCP client (Claude Code, Claude Desktop) run Lua inside REAPER.
+Lets any MCP client run Lua inside REAPER.
 Start it with:  uv run server.py
 
 It talks to REAPER through files in the bridge folder, where the
