@@ -40,9 +40,14 @@ local RECENT_LIMIT = 8
 local SWATCH_W, SWATCH_H = 34, 16
 
 local GROUPS = {
-  { target = "track", title = "Tracks" },
-  { target = "region", title = "Regions" },
-  { target = "marker", title = "Markers" },
+  -- `switches`: the group is greyed while all of these are off; "Turn on"
+  -- turns on the first.
+  { target = "track", title = "Tracks", switches = { "track_colour", "track_icon", "track_layout" },
+    off_note = "Track colour, icon and layout are off." },
+  { target = "region", title = "Regions", switches = { "region_colour" },
+    off_note = "Region colour is off." },
+  { target = "marker", title = "Markers", switches = { "marker_colour" },
+    off_note = "Marker colour is off." },
 }
 
 local function log(message)
@@ -372,7 +377,24 @@ function M.run(ImGui)
       end)
     end
     ImGui.SetItemTooltip(ctx, "Add a " .. group.target .. " rule")
+
+    -- While the group's switches are all off, its rules do nothing: say so
+    -- and grey the list (it can still be edited).
+    local switches = settings.read_switches()
+    local off = true
+    for _, key in ipairs(group.switches) do
+      if switches[key] then off = false end
+    end
+    if off then
+      ImGui.SameLine(ctx)
+      ImGui.TextDisabled(ctx, group.off_note)
+      ImGui.SameLine(ctx)
+      if ImGui.SmallButton(ctx, "Turn on##on_" .. group.target) then
+        settings.set_switch(group.switches[1], true)
+      end
+    end
     if #rules == 0 then return end  -- just the title line: nothing to list
+    if off then ImGui.PushStyleVar(ctx, ImGui.StyleVar_Alpha, 0.45) end
 
     local columns = is_track and 9 or 6
     local flags = ImGui.TableFlags_RowBg | ImGui.TableFlags_SizingFixedFit | ImGui.TableFlags_PadOuterX
@@ -443,15 +465,39 @@ function M.run(ImGui)
       ImGui.PopID(ctx)
     end
     ImGui.EndTable(ctx)
+    if off then ImGui.PopStyleVar(ctx) end
   end
 
   -- Footer -----------------------------------------------------------------
 
   local function draw_footer()
     ImGui.Separator(ctx)
-    local c = ui.coloured
-    ImGui.TextDisabled(ctx, string.format("%d rules · %d tracks, %d regions, %d markers coloured",
-        #model.doc.rules, c.track, c.region, c.marker))
+    -- What the rules colour now, for the kinds whose colour switch is on.
+    local c, switches = ui.coloured, settings.read_switches()
+    local counted, switched_off = {}, {}
+    for _, kind in ipairs({
+      { target = "track", key = "track_colour", word = "track", label = "Track colour" },
+      { target = "region", key = "region_colour", word = "region", label = "Region colour" },
+      { target = "marker", key = "marker_colour", word = "marker", label = "Marker colour" },
+    }) do
+      if switches[kind.key] then
+        local n = c[kind.target]
+        counted[#counted + 1] = n .. " " .. kind.word .. (n == 1 and "" or "s")
+      else
+        switched_off[#switched_off + 1] = kind.label
+      end
+    end
+    local n_rules = #model.doc.rules
+    local parts = { n_rules .. (n_rules == 1 and " rule" or " rules") }
+    if #counted > 0 then parts[#parts + 1] = "colouring " .. table.concat(counted, ", ") end
+    if #switched_off > 0 then
+      parts[#parts + 1] = table.concat(switched_off, " and ")
+          .. (#switched_off == 1 and " is off" or " are off")
+    end
+    ImGui.TextDisabled(ctx, table.concat(parts, " · "))
+    if #counted > 0 then
+      ImGui.SetItemTooltip(ctx, "Items a rule gives a colour to (hand-set colours are kept unless you Force).")
+    end
     if reaper.GetExtState(settings.SECTION, "engine_running") ~= "1" then
       ImGui.SameLine(ctx)
       ImGui.TextColored(ctx, W.WARN, "Engine is off: rules apply only when it runs.")

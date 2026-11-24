@@ -323,4 +323,30 @@ function T.footer_warns_when_sws_does_the_same_job()
   assert(not shown["SWS Auto Color is also on."], "warning stayed")
 end
 
+function T.switched_off_group_is_greyed_and_footer_says_so()
+  local imgui, step, _, fake = start()
+  fake.SetExtState("eminor_autocolor", "switch.region_colour", "0")
+  fake.SetExtState("eminor_autocolor", "switch.marker_colour", "0")
+  local shown, alpha_pushes = {}, 0
+  local real_text, real_push = imgui.ImGui.TextDisabled, imgui.ImGui.PushStyleVar
+  rawset(imgui.ImGui, "TextDisabled", function(ctx, text)
+    real_text(ctx, text)
+    shown[text] = true
+  end)
+  rawset(imgui.ImGui, "PushStyleVar", function(ctx, var, ...)
+    real_push(ctx, var, ...)
+    if var == imgui.ImGui.StyleVar_Alpha then alpha_pushes = alpha_pushes + 1 end
+  end)
+  step()
+  assert(shown["Region colour is off."] and shown["Marker colour is off."])
+  assert(alpha_pushes == 2, "both lists should be greyed")
+  local footer
+  for text in pairs(shown) do if text:match("^5 rules") then footer = text end end
+  assert(footer == "5 rules · colouring 2 tracks · Region colour and Marker colour are off", footer)
+
+  imgui.press("Turn on##on_region")
+  step()
+  assert(fake.GetExtState("eminor_autocolor", "switch.region_colour") == "1")
+end
+
 return T

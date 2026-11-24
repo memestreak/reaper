@@ -56,7 +56,7 @@ local CONSTANTS = {
   "FocusedFlags_RootAndChildWindows", "Key_Backspace", "Key_Delete", "Key_DownArrow", "Key_Escape",
   "Key_UpArrow", "Key_Z", "Mod_Alt", "Mod_Ctrl", "Mod_Shift", "MouseButton_Left",
   "PopupFlags_AnyPopup", "SelectableFlags_AllowOverlap", "SelectableFlags_SpanAllColumns",
-  "StyleVar_CellPadding", "StyleVar_ChildRounding", "StyleVar_FramePadding", "StyleVar_FrameRounding",
+  "StyleVar_Alpha", "StyleVar_CellPadding", "StyleVar_ChildRounding", "StyleVar_FramePadding", "StyleVar_FrameRounding",
   "StyleVar_GrabRounding", "StyleVar_ItemSpacing", "StyleVar_PopupRounding", "StyleVar_WindowPadding",
   "TableColumnFlags_WidthFixed", "TableColumnFlags_WidthStretch", "TableFlags_PadOuterX",
   "TableFlags_RowBg", "TableFlags_SizingFixedFit", "WindowFlags_NoCollapse", "WindowFlags_NoResize", "WindowFlags_NoSavedSettings",
