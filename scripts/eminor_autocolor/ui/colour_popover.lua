@@ -61,6 +61,25 @@ local function spec_for_mode(mode, old)
   return { mode = mode }
 end
 
+-- Settings a rule had before a switch, so switching back restores them
+-- (Range -> Palette -> Range keeps the base colour, and so on).
+-- rule id -> { variant -> spec }. Kept while the editor is open.
+local remembered = {}
+
+-- Remembers `old` and returns the remembered spec for `variant`, or
+-- `fresh()` if there is none. Variants are the modes, plus "family_range"
+-- and "family_palette" for the two kinds of family ("family" is whichever
+-- was used last).
+local function switch_spec(rule_id, old, variant, fresh)
+  local mine = remembered[rule_id] or {}
+  remembered[rule_id] = mine
+  mine[old.mode] = copy(old)
+  if old.mode == "family" then
+    mine[old.palette and "family_palette" or "family_range"] = copy(old)
+  end
+  return copy(mine[variant]) or fresh()
+end
+
 -- One row of colour cells. Returns the clicked colour, or nil.
 local function palette_row(ImGui, ctx, id, colours, picked)
   local clicked
@@ -151,20 +170,20 @@ local function draw_fixed(ImGui, ctx, state, work, sources, change)
   end
 end
 
-local function draw_family(ImGui, ctx, state, work, palettes, in_use, change)
+local function draw_family(ImGui, ctx, state, work, palettes, in_use, change, rule_id)
   local kind = work.palette and "palette" or "range"
   local new_kind = W.segmented(ImGui, ctx, "kind", {
     { label = "Range", value = "range" }, { label = "Palette", value = "palette" } }, kind)
   if new_kind ~= kind then
-    if new_kind == "palette" then
-      local first = palettes[1]
-      work.palette = copy(first and first.colours or (#in_use > 0 and in_use) or { base_of(work) })
-      work.base, work.hue, work.light = nil, nil, nil
-    else
-      local base = base_of(work)
-      work.palette, work.base, work.hue, work.light = nil, base, 8, 0.12
-    end
-    change(work, true)
+    local spec = switch_spec(rule_id, work, "family_" .. new_kind, function()
+      if new_kind == "palette" then
+        local first = palettes[1]
+        return { mode = "family",
+                 palette = copy(first and first.colours or (#in_use > 0 and in_use) or { base_of(work) }) }
+      end
+      return { mode = "family", base = base_of(work), hue = 8, light = 0.12 }
+    end)
+    change(spec, true)
     return
   end
 
@@ -258,7 +277,8 @@ function M.draw(ImGui, ctx, rule, state, context)
       if not m.tracks_only or rule.target == "track" then
         if ImGui.Selectable(ctx, m.label, m.mode == work.mode) and m.mode ~= work.mode then
           state.picker = nil
-          change(spec_for_mode(m.mode, work), true)
+          local fresh = function() return spec_for_mode(m.mode, work) end
+          change(switch_spec(rule.id, work, m.mode, fresh), true)
         end
       end
     end
@@ -270,7 +290,7 @@ function M.draw(ImGui, ctx, rule, state, context)
   if work.mode == "fixed" then
     draw_fixed(ImGui, ctx, state, work, sources, change)
   elseif work.mode == "family" then
-    draw_family(ImGui, ctx, state, work, context.palettes, context.in_use, change)
+    draw_family(ImGui, ctx, state, work, context.palettes, context.in_use, change, rule.id)
   elseif work.mode == "gradient" then
     draw_gradient(ImGui, ctx, state, work, change)
   else
