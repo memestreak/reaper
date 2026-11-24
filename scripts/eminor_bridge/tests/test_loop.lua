@@ -3,10 +3,14 @@ local fake_reaper = require("fake_reaper")
 
 local T = {}
 
+-- Makes a fresh folder under $TMPDIR (os.tmpname() only knows /tmp, which
+-- a sandbox may not allow).
+local folder_count = 0
 local function temp_folder()
-  local name = os.tmpname()
-  os.remove(name)
-  os.execute('mkdir "' .. name .. '"')
+  folder_count = folder_count + 1
+  local base = (os.getenv("TMPDIR") or "/tmp"):gsub("/$", "")
+  local name = string.format("%s/eminor_bridge_test_%d_%d", base, os.time(), folder_count)
+  os.execute('rm -rf "' .. name .. '" && mkdir -p "' .. name .. '"')
   return name .. "/"
 end
 
