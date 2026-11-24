@@ -52,7 +52,7 @@ end
 -- in (skipping SWS's unused "(name)" placeholder); otherwise the file
 -- starts empty. SWS's on/off switches are not copied: switching SWS off
 -- is part of moving over, so they are usually off by now.
-local function create_rules_file(path)
+function M.create_rules_file(path)
   local sep = package.config:sub(1, 1)
   local folder = path:match("^(.*)" .. sep)
   reaper.RecursiveCreateDirectory(folder, 0)
@@ -92,7 +92,7 @@ function M.run()
 
   local path = rules_module.file_path()
   if not rules_module.read_file(path) then
-    create_rules_file(path)
+    M.create_rules_file(path)
   end
 
   local rules, rules_text = {}, nil

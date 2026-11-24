@@ -106,7 +106,7 @@ function M.set_enabled(on, named_command)
   local new_text
   if on then
     if not named_command then
-      return false, "Couldn't find the engine action in the Action List. Load "
+      return false, "Couldn't add the engine to the Action List. Load "
           .. "eminor_autocolor_engine.lua there (New action › Load ReaScript), then try again."
     end
     new_text = M.add_line(text, named_command)

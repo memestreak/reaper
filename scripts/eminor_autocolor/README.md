@@ -9,10 +9,11 @@ by rules you set. It leaves changes you make by hand alone.
 ## Quick start
 
 1. Install ReaImGui from ReaPack (Extensions › ReaPack › Browse packages).
-2. Load `eminor_autocolor_engine.lua` and `eminor_autocolor_editor.lua`
-   in the Action List (New action › Load ReaScript), and run both.
-3. In the editor, add rules with **+**, then tick Settings › Startup so
-   the engine starts with REAPER. Moving from SWS? Settings › SWS imports
+2. Load `eminor_autocolor_editor.lua` in the Action List (New action ›
+   Load ReaScript) and run it. It adds the engine to the Action List
+   itself; press **Start engine** at the bottom of the editor.
+3. Add rules with **+**, then tick Settings › Startup so the engine
+   starts with REAPER. Moving from SWS? Settings › SWS imports
    its rules and switches it off.
 
 Status: **phase 4**. Everything SWS Auto Color/Icon/Layout does works,
@@ -22,11 +23,12 @@ see the plan doc.
 
 ## Actions
 
-Load each with Action List › New action › Load ReaScript.
+Only the editor needs loading (Action List › New action › Load
+ReaScript): it adds the engine action the first time it opens.
 
 | Script | What it does |
 | --- | --- |
-| `eminor_autocolor_engine.lua` | Starts the background engine; run again to stop it. Shows on/off on toolbars. |
+| `eminor_autocolor_engine.lua` | The background engine that applies the rules; run again to stop it. Shows on/off on toolbars. Started by the editor's **Start engine** button or by Settings › Startup. |
 | `eminor_autocolor_editor.lua` | Opens the rule editor; run again to close it. Needs ReaImGui 0.10+ (ReaPack). |
 
 The editor has everything else: the five on/off switches (the pills
@@ -73,7 +75,7 @@ warns while SWS is switched on for something this script also does.
 ## Rules
 
 Rules live in `<resource folder>/Data/eminor_autocolor/rules.lua`, outside
-this repository. The first time the engine runs it creates the file,
+this repository. The first time the editor or engine runs it creates the file,
 copying your SWS rules from `sws-autocoloricon.ini` if there are any.
 The editor writes it; hand edits also work and are picked up within two
 seconds. The format is described at the top of `lib/rules.lua`.

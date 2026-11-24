@@ -431,4 +431,34 @@ function T.click_outside_closes_settings_but_a_click_inside_does_not()
   assert(not imgui.opened["Settings##eminor_autocolor"], "a click outside didn't close it")
 end
 
+function T.editor_adds_the_engine_action_and_starts_it()
+  local imgui, step, _, fake = start()
+  step()
+  -- Opening the editor added the engine script to the Action List.
+  local path, named = next(fake.scripts)
+  assert(path and path:match("eminor_autocolor_engine%.lua$"), tostring(path))
+  -- The engine isn't running, so the footer offers to start it.
+  imgui.press("Start engine")
+  step()
+  assert(fake.commands_run[1] == named, tostring(fake.commands_run[1]))
+end
+
+function T.startup_setting_uses_the_added_engine_action()
+  local imgui, step, _, fake = start()
+  step()
+  imgui.press("Settings")
+  step()
+  imgui.press("Startup")
+  step()
+  imgui.press("##startup")
+  step()
+  imgui.press("OK")
+  step()
+  local _, named = next(fake.scripts)
+  local file = io.open(fake.GetResourcePath() .. "/Scripts/__startup.lua")
+  local text = file and file:read("a") or ""
+  if file then file:close() end
+  assert(text:find('NamedCommandLookup("' .. named .. '")', 1, true), text)
+end
+
 return T
