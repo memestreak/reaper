@@ -190,6 +190,13 @@ function M.trash_button(ImGui, ctx, id, size)
   return clicked
 end
 
+-- True when the mouse was clicked outside the current window (and its
+-- child windows): dialogs close on it, the same as Esc.
+function M.clicked_outside(ImGui, ctx)
+  return ImGui.IsMouseClicked(ctx, ImGui.MouseButton_Left)
+      and not ImGui.IsWindowHovered(ctx, ImGui.HoveredFlags_RootAndChildWindows)
+end
+
 -- Two-way "segmented" choice, as in the Family mock. Returns the new value.
 function M.segmented(ImGui, ctx, id, options, value)
   ImGui.PushID(ctx, id)

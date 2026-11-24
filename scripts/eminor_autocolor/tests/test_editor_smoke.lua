@@ -388,4 +388,39 @@ function T.trash_button_deletes_the_row()
   step()
   assert(find(file(), "g"))
 end
+-- Esc closes an open popover, and that same Esc must not also close the
+-- editor (it is already closed by the time the editor looks at keys).
+function T.esc_closing_a_popover_leaves_the_editor_open()
+  local imgui, step = start()
+  step()
+  imgui.press("##swatch")
+  step()
+  assert(imgui.opened["colour"], "popover did not open")
+  step()
+  local real = imgui.ImGui.IsKeyPressed
+  rawset(imgui.ImGui, "IsKeyPressed", function(ctx, key, ...)
+    real(ctx, key, ...)
+    return key == imgui.ImGui.Key_Escape
+  end)
+  step()  -- Esc: the popover closes, and the editor keeps running
+  assert(not imgui.opened["colour"], "Esc did not close the popover")
+  rawset(imgui.ImGui, "IsKeyPressed", real)
+  step()
+end
+
+function T.click_outside_closes_settings_but_a_click_inside_does_not()
+  local imgui, step = start()
+  step()
+  imgui.press("Settings")
+  step()
+  local hovered = true
+  rawset(imgui.ImGui, "IsMouseClicked", function() return true end)
+  rawset(imgui.ImGui, "IsWindowHovered", function() return hovered end)
+  step()
+  assert(imgui.opened["Settings##eminor_autocolor"], "a click inside closed it")
+  hovered = false
+  step()
+  assert(not imgui.opened["Settings##eminor_autocolor"], "a click outside didn't close it")
+end
+
 return T
