@@ -144,6 +144,11 @@ function M.run(ImGui)
     sws_on = {}, next_sws_check = 0,  -- SWS's own switches, read once a second
   }
 
+  -- Esc closes the open popover (and only it: see handle_keys).
+  local function close_popup_on_esc()
+    if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then ImGui.CloseCurrentPopup(ctx) end
+  end
+
   -- Saving -----------------------------------------------------------------
 
   local function save()
@@ -259,6 +264,7 @@ function M.run(ImGui)
     if ImGui.ArrowButton(ctx, "##specials", ImGui.Dir_Down) then ImGui.OpenPopup(ctx, "specials") end
     ImGui.SetItemTooltip(ctx, "Special filters")
     if ImGui.BeginPopup(ctx, "specials") then
+      close_popup_on_esc()
       local names = {}
       local source = rule.target == "track" and match.TRACK_FILTERS or match.MARKER_FILTERS
       for name in pairs(source) do names[#names + 1] = name end
@@ -280,6 +286,7 @@ function M.run(ImGui)
     end
     ImGui.SetItemTooltip(ctx, W.describe(rule.colour))
     if ImGui.BeginPopup(ctx, "colour") then
+      close_popup_on_esc()
       if ui.popover and ui.popover.rule_id == rule.id then
         colour_popover.draw(ImGui, ctx, rule, ui.popover, {
           palettes = model.doc.palettes,
@@ -547,10 +554,15 @@ function M.run(ImGui)
   end
 
   local function handle_keys()
-    if ImGui.IsAnyItemActive(ctx) or ImGui.IsPopupOpen(ctx, "", ImGui.PopupFlags_AnyPopup) then return end
+    -- A popup or a field being typed in gets keys first. Esc closes them
+    -- before this runs, so also look at whether one was open last frame:
+    -- otherwise the same Esc would close the editor too.
+    local busy = ImGui.IsAnyItemActive(ctx) or ImGui.IsPopupOpen(ctx, "", ImGui.PopupFlags_AnyPopup)
+    local was_busy = ui.busy_last_frame
+    ui.busy_last_frame = busy
+    if busy or was_busy then return end
     if not ImGui.IsWindowFocused(ctx, ImGui.FocusedFlags_RootAndChildWindows) then return end
-    -- Esc closes the editor (only when nothing else is using it: a field
-    -- being typed in or a popup gets Esc first).
+    -- Esc closes the editor when nothing else is using it.
     if ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then ui.close_requested = true return end
     local ctrl, shift, alt = ImGui.Mod_Ctrl, ImGui.Mod_Shift, ImGui.Mod_Alt
     if ImGui.IsKeyChordPressed(ctx, ctrl | shift | ImGui.Key_Z) then redo() return end
@@ -591,6 +603,7 @@ function M.run(ImGui)
     })
 
     if ImGui.BeginPopup(ctx, "Icons##browser") then
+      close_popup_on_esc()
       local rule = ui.icon_target and model_module.find(model.doc, ui.icon_target)
       if rule then
         local chosen = icons.browser(ImGui, ctx, ui.icon_state, rule.icon)
