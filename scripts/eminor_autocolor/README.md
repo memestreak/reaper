@@ -4,6 +4,8 @@ A replacement for SWS Auto Color/Icon/Layout, written as Lua ReaScripts.
 It colours tracks, markers and regions, and sets track icons and layouts,
 by rules you set. It leaves changes you make by hand alone.
 
+![The eminor Auto Color editor](docs/editor.png)
+
 Status: **phase 4**. Everything SWS Auto Color/Icon/Layout does works,
 rules are edited in the editor window, and Settings › SWS imports SWS's
 rules and switches SWS's own Auto Color off. Polish comes in phase 5;
