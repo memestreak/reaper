@@ -20,7 +20,7 @@ local FUNCTIONS = {
   BeginTable = { 3, 7 }, Button = { 2, 4 }, CalcTextSize = { 2, 4 }, Checkbox = { 3, 3 },
   CloseCurrentPopup = { 1, 1 }, ColorPicker3 = { 3, 4 }, CreateContext = { 1, 2 },
   CreateFont = { 1, 2 }, CreateImage = { 1, 2 },
-  DrawList_AddCircleFilled = { 5, 6 }, DrawList_AddRect = { 6, 9 }, DrawList_AddRectFilled = { 6, 8 },
+  DrawList_AddCircleFilled = { 5, 6 }, DrawList_AddQuadFilled = { 10, 10 }, DrawList_AddRect = { 6, 9 }, DrawList_AddRectFilled = { 6, 8 },
   DrawList_AddRectFilledMultiColor = { 9, 9 }, DrawList_AddText = { 5, 5 },
   Dummy = { 3, 3 }, End = { 1, 1 }, EndChild = { 1, 1 }, EndCombo = { 1, 1 }, EndDisabled = { 1, 1 },
   EndDragDropSource = { 1, 1 }, EndDragDropTarget = { 1, 1 }, EndPopup = { 1, 1 }, EndTable = { 1, 1 },
