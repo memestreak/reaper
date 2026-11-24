@@ -1,7 +1,7 @@
 -- tests/run.lua
 --
 -- Runs every test file. From the repository root:
---   lua scripts/eminor_bridge/tests/run.lua
+--   lua scripts/eminor_mcp_bridge/tests/run.lua
 --
 -- Each test file returns a table of name -> function. A test fails by
 -- raising an error (assert).

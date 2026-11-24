@@ -2,7 +2,7 @@
 --
 -- Runs the bridge's polling against the fake REAPER, for testing the MCP
 -- server without REAPER (see mcp/test_server.py):
---   lua scripts/eminor_bridge/tests/fake_bridge.lua <folder>
+--   lua scripts/eminor_mcp_bridge/tests/fake_bridge.lua <folder>
 -- Polls <folder> until a file named "stop" appears there.
 
 local here = debug.getinfo(1, "S").source:match("^@?(.*[/\\])") or "./"

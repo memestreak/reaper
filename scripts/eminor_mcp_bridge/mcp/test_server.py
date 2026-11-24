@@ -4,7 +4,7 @@
 # ///
 """End-to-end test of server.py against the fake bridge. Needs `lua`.
 
-From the repository root:  uv run scripts/eminor_bridge/mcp/test_server.py
+From the repository root:  uv run scripts/eminor_mcp_bridge/mcp/test_server.py
 """
 
 import os
@@ -17,8 +17,8 @@ FAKE_BRIDGE = HERE.parent / "tests" / "fake_bridge.lua"
 
 
 def main():
-    folder = Path(tempfile.mkdtemp(prefix="eminor_bridge_"))
-    os.environ["EMINOR_BRIDGE_FOLDER"] = str(folder)
+    folder = Path(tempfile.mkdtemp(prefix="eminor_mcp_bridge_"))
+    os.environ["EMINOR_MCP_BRIDGE_FOLDER"] = str(folder)
     import server
     server.RESPONSE_TIMEOUT_SECONDS = 3
 

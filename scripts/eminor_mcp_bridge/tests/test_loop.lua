@@ -9,7 +9,7 @@ local folder_count = 0
 local function temp_folder()
   folder_count = folder_count + 1
   local base = (os.getenv("TMPDIR") or "/tmp"):gsub("/$", "")
-  local name = string.format("%s/eminor_bridge_test_%d_%d", base, os.time(), folder_count)
+  local name = string.format("%s/eminor_mcp_bridge_test_%d_%d", base, os.time(), folder_count)
   os.execute('rm -rf "' .. name .. '" && mkdir -p "' .. name .. '"')
   return name .. "/"
 end

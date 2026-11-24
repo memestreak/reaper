@@ -60,12 +60,12 @@ end
 
 function M.folder()
   local sep = package.config:sub(1, 1)
-  return reaper.GetResourcePath() .. sep .. "Data" .. sep .. "eminor_bridge" .. sep
+  return reaper.GetResourcePath() .. sep .. "Data" .. sep .. "eminor_mcp_bridge" .. sep
 end
 
 function M.run()
   if not reaper.set_action_options then
-    reaper.MB("eminor Bridge needs REAPER 7.03 or newer.", "eminor Bridge", 0)
+    reaper.MB("eminor MCP Bridge needs REAPER 7.03 or newer.", "eminor MCP Bridge", 0)
     return
   end
   reaper.set_action_options(OPTION_TERMINATE_ON_RELAUNCH | OPTION_TOGGLE_ON)
@@ -91,7 +91,7 @@ function M.run()
       next_poll = now + POLL_SECONDS
       local ok, problem = pcall(M.poll_once, folder, reaper)
       if not ok then
-        reaper.ShowConsoleMsg("eminor Bridge: " .. tostring(problem) .. "\n")
+        reaper.ShowConsoleMsg("eminor MCP Bridge: " .. tostring(problem) .. "\n")
       end
     end
     reaper.defer(tick)

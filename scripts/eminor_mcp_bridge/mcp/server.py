@@ -2,20 +2,20 @@
 # requires-python = ">=3.10"
 # dependencies = ["mcp>=2,<3"]
 # ///
-"""MCP server for the eminor Bridge.
+"""MCP server for the eminor MCP Bridge.
 
 Lets an MCP client (Claude Code, Claude Desktop) run Lua inside REAPER.
 Start it with:  uv run server.py
 
 It talks to REAPER through files in the bridge folder, where the
-eminor_bridge.lua action is polling:
+eminor_mcp_bridge.lua action is polling:
 
     request.lua            written here, read and deleted by REAPER
     response-<id>.json     written by REAPER, read and deleted here
     running.json           exists while the bridge action is running
 
-Set EMINOR_BRIDGE_FOLDER to use a folder other than the default
-<REAPER resource folder>/Data/eminor_bridge.
+Set EMINOR_MCP_BRIDGE_FOLDER to use a folder other than the default
+<REAPER resource folder>/Data/eminor_mcp_bridge.
 """
 
 import json
@@ -42,7 +42,7 @@ class BridgeError(Exception):
 
 
 def bridge_folder() -> Path:
-    override = os.environ.get("EMINOR_BRIDGE_FOLDER")
+    override = os.environ.get("EMINOR_MCP_BRIDGE_FOLDER")
     if override:
         return Path(override).expanduser()
     home = Path.home()
@@ -52,7 +52,7 @@ def bridge_folder() -> Path:
         resources = Path(os.environ.get("APPDATA", home)) / "REAPER"
     else:
         resources = home / ".config" / "REAPER"
-    return resources / "Data" / "eminor_bridge"
+    return resources / "Data" / "eminor_mcp_bridge"
 
 
 def send_request(code: str, undo_label: str | None = None) -> dict:
@@ -60,8 +60,8 @@ def send_request(code: str, undo_label: str | None = None) -> dict:
     folder = bridge_folder()
     if not (folder / "running.json").exists():
         raise BridgeError(
-            "The eminor Bridge is not running. In REAPER, run the action "
-            "'Script: eminor_bridge.lua' and try again."
+            "The eminor MCP Bridge is not running. In REAPER, run the action "
+            "'Script: eminor_mcp_bridge.lua' and try again."
         )
 
     request_id = uuid.uuid4().hex[:12]
@@ -90,7 +90,7 @@ def send_request(code: str, undo_label: str | None = None) -> dict:
                     )
                 raise BridgeError(
                     "REAPER did not pick up the request. Check that REAPER is "
-                    "open and the eminor_bridge.lua action is still running."
+                    "open and the eminor_mcp_bridge.lua action is still running."
                 )
             time.sleep(POLL_SECONDS)
 
