@@ -149,7 +149,7 @@ local function draw_sws(ImGui, ctx)
       end
     end
     help(ImGui, ctx, "SWS's own Auto Color switches. Leave them off: when SWS and "
-        .. "eminor Auto Color both colour the same things, they undo each other's work.")
+        .. "Eminor Auto Color both colour the same things, they undo each other's work.")
   end
   ImGui.Spacing(ctx)
   ImGui.Separator(ctx)

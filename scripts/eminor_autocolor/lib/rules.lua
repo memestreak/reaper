@@ -281,7 +281,7 @@ end
 -- Fields come out in a fixed order so the file diffs well.
 function M.serialize(rules, palettes)
   local lines = {
-    "-- eminor Auto Color rules. Rules are checked top to bottom within each",
+    "-- Eminor Auto Color rules. Rules are checked top to bottom within each",
     "-- target (track, marker, region); the first match wins.",
     "return {",
     "  version = " .. M.FORMAT_VERSION .. ",",

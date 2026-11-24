@@ -1,4 +1,4 @@
-# eminor Auto Color
+# Eminor Auto Color
 
 A replacement for SWS Auto Color/Icon/Layout, written as Lua ReaScripts.
 It colours tracks, markers and regions, and sets track icons and layouts,

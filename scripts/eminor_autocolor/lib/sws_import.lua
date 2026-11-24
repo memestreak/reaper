@@ -1,7 +1,7 @@
 -- lib/sws_import.lua
 --
 -- Reads SWS Auto Color/Icon/Layout rules from sws-autocoloricon.ini and
--- turns them into eminor Auto Color rules. Pure Lua: tested outside REAPER.
+-- turns them into Eminor Auto Color rules. Pure Lua: tested outside REAPER.
 --
 -- SWS stores each rule as one line in its [SWS] section:
 --   AutoColor 6=2 verse 42649127 "" "" ""

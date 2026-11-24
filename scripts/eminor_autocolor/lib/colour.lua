@@ -1,6 +1,6 @@
 -- lib/colour.lua
 --
--- Colour maths for eminor Auto Color. Pure Lua: nothing here calls REAPER,
+-- Colour maths for Eminor Auto Color. Pure Lua: nothing here calls REAPER,
 -- so it can be tested outside REAPER.
 --
 -- Colours are plain integers in 0xRRGGBB form ("rgb" below). Converting to

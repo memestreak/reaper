@@ -25,7 +25,7 @@ local OPTION_TOGGLE_OFF = 8
 
 
 local function log(message)
-  reaper.ShowConsoleMsg("eminor Auto Color: " .. message .. "\n")
+  reaper.ShowConsoleMsg("Eminor Auto Color: " .. message .. "\n")
 end
 
 local function report_problems(problems)
@@ -77,7 +77,7 @@ end
 
 function M.run()
   if not reaper.set_action_options then
-    reaper.MB("eminor Auto Color needs REAPER 7.03 or newer.", "eminor Auto Color", 0)
+    reaper.MB("Eminor Auto Color needs REAPER 7.03 or newer.", "Eminor Auto Color", 0)
     return
   end
   reaper.set_action_options(OPTION_TERMINATE_ON_RELAUNCH | OPTION_TOGGLE_ON)

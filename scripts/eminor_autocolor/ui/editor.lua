@@ -32,7 +32,7 @@ local palettes_dialog = require("ui.palettes_dialog")
 
 local M = {}
 
-local TITLE = "eminor Auto Color"
+local TITLE = "Eminor Auto Color"
 local FILE_CHECK_SECONDS = 1
 local COUNT_CHECK_SECONDS = 1
 local RECENT_KEY = "editor.recent_colours"
@@ -53,7 +53,7 @@ local GROUPS = {
 }
 
 local function log(message)
-  reaper.ShowConsoleMsg("eminor Auto Color editor: " .. message .. "\n")
+  reaper.ShowConsoleMsg("Eminor Auto Color editor: " .. message .. "\n")
 end
 
 
@@ -123,7 +123,7 @@ function M.run(ImGui)
   local path = rules_module.file_path()
   local last_text = rules_module.read_file(path)
   if not last_text then
-    reaper.MB("No rules file yet. Run the eminor Auto Color engine once to create it.", TITLE, 0)
+    reaper.MB("No rules file yet. Run the Eminor Auto Color engine once to create it.", TITLE, 0)
     return
   end
   local rules, problems, palettes = rules_module.parse(last_text)

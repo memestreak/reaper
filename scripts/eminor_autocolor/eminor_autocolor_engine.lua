@@ -1,6 +1,6 @@
 -- eminor_autocolor_engine.lua
 --
--- Action: start or stop the eminor Auto Color engine. It runs in the
+-- Action: start or stop the Eminor Auto Color engine. It runs in the
 -- background, colouring tracks by the rules in
 -- <REAPER resource folder>/Data/eminor_autocolor/rules.lua.
 --

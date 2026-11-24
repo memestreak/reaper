@@ -1,13 +1,13 @@
 -- eminor_autocolor_editor.lua
 --
--- Action: open the eminor Auto Color rule editor (run again to close it).
+-- Action: open the Eminor Auto Color rule editor (run again to close it).
 -- Needs the ReaImGui extension (0.10 or newer), from ReaPack. The engine
 -- doesn't need it: colouring keeps working without the editor.
 
 local here = debug.getinfo(1, "S").source:match("^@?(.*[/\\])")
 package.path = here .. "?.lua;" .. package.path
 
-local TITLE = "eminor Auto Color"
+local TITLE = "Eminor Auto Color"
 local REAIMGUI_VERSION = "0.10"
 local MB_YESNO, MB_RESULT_YES = 4, 6
 
@@ -28,14 +28,14 @@ local function offer_reaimgui(problem)
 end
 
 if not reaper.ImGui_GetBuiltinPath then
-  offer_reaimgui("The eminor Auto Color editor needs the ReaImGui extension.")
+  offer_reaimgui("The Eminor Auto Color editor needs the ReaImGui extension.")
   return
 end
 
 package.path = reaper.ImGui_GetBuiltinPath() .. "/?.lua;" .. package.path
 local ok, ImGui = pcall(function() return require("imgui")(REAIMGUI_VERSION) end)
 if not ok then
-  offer_reaimgui("The eminor Auto Color editor needs ReaImGui " .. REAIMGUI_VERSION
+  offer_reaimgui("The Eminor Auto Color editor needs ReaImGui " .. REAIMGUI_VERSION
       .. " or newer.\n(" .. tostring(ImGui) .. ")")
   return
 end
