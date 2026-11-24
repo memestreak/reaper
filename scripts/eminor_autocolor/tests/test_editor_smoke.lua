@@ -443,6 +443,22 @@ function T.editor_adds_the_engine_action_and_starts_it()
   assert(fake.commands_run[1] == named, tostring(fake.commands_run[1]))
 end
 
+function T.first_start_also_starts_the_engine_with_reaper_once()
+  local startup = require("lib.startup")
+  local imgui, step, _, fake = start()
+  step()
+  assert(not startup.is_enabled())
+  imgui.press("Start engine")
+  step()
+  assert(startup.is_enabled(), "the first start should tick Settings › Startup")
+  -- Untick Startup; a later start leaves it off.
+  assert(startup.set_enabled(false))
+  imgui.press("Start engine")
+  step()
+  assert(#fake.commands_run == 2, tostring(#fake.commands_run))
+  assert(not startup.is_enabled(), "a later start must not tick Startup again")
+end
+
 function T.startup_setting_uses_the_added_engine_action()
   local imgui, step, _, fake = start()
   step()

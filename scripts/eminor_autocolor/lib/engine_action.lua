@@ -51,7 +51,8 @@ function M.is_running()
   return reaper.GetExtState(settings.SECTION, "engine_running") == "1"
 end
 
--- Starts the engine unless it is running. Returns true, or false and a message.
+-- Starts the engine unless it is running (the first time, also with REAPER).
+-- Returns true, or false and a message.
 function M.start()
   if M.is_running() then return true end
   local id = M.command_id()
@@ -59,7 +60,16 @@ function M.start()
     return false, "Couldn't add the engine (" .. M.script_path() .. ") to the Action List."
   end
   reaper.Main_OnCommand(id, 0)
-  return true
+  return M.start_with_reaper_once()
+end
+
+-- The first start also ticks Settings › Startup, so the engine starts with
+-- REAPER from then on. Only once: if you untick it later, it stays off.
+function M.start_with_reaper_once()
+  if settings.startup_auto_done() then return true end
+  local ok, err = startup.set_enabled(true, M.named_command())
+  if ok then settings.mark_startup_auto_done() end
+  return ok, err
 end
 
 return M

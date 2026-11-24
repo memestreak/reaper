@@ -12,9 +12,9 @@ by rules you set. It leaves changes you make by hand alone.
 2. Load `eminor_autocolor_editor.lua` in the Action List (New action ›
    Load ReaScript) and run it. It adds the engine to the Action List
    itself; press **Start engine** at the bottom of the editor.
-3. Add rules with **+**, then tick Settings › Startup so the engine
-   starts with REAPER. Moving from SWS? Settings › SWS imports
-   its rules and switches it off.
+3. Add rules with **+**. From then on the engine starts with REAPER
+   (untick Settings › Startup to stop that). Moving from SWS?
+   Settings › SWS imports its rules and switches it off.
 
 ## Actions
 
