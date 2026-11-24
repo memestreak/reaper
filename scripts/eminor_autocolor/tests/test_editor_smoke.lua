@@ -134,7 +134,9 @@ function T.colour_popover_renders_every_mode_and_applies_a_palette_colour()
     imgui.combos["##mode"] = nil
     step()
   end
-  assert(find(file(), "g").colour.mode == "fixed")
+  -- Back on Fixed, the colour it had before is restored.
+  local back = find(file(), "g").colour
+  assert(back.mode == "fixed" and back.rgb == 0x000000, string.format("%06X", back.rgb or -1))
 end
 
 function T.family_palette_toggle_and_saved_palette()
@@ -153,7 +155,13 @@ function T.family_palette_toggle_and_saved_palette()
   imgui.press("Range")
   step()
   rule = find(file(), "g")
-  assert(rule.colour.base and not rule.colour.palette)
+  -- Range -> Palette -> Range keeps the base colour, hue and lightness.
+  assert(rule.colour.base == 0xBF0004 and not rule.colour.palette,
+      string.format("%06X", rule.colour.base or -1))
+  assert(rule.colour.hue == 8 and rule.colour.light == 0.12)
+  imgui.press("Palette")
+  step()
+  assert(find(file(), "g").colour.palette[1] == 0xEA8D20, "palette not restored")
 end
 
 function T.icon_browser_sets_icon()
