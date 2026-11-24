@@ -4,6 +4,17 @@ A replacement for SWS Auto Color/Icon/Layout, written as Lua ReaScripts.
 It colours tracks, markers and regions, and sets track icons and layouts,
 by rules you set. It leaves changes you make by hand alone.
 
+![The rule editor](docs/editor.png)
+
+## Quick start
+
+1. Install ReaImGui from ReaPack (Extensions › ReaPack › Browse packages).
+2. Load `eminor_autocolor_engine.lua` and `eminor_autocolor_editor.lua`
+   in the Action List (New action › Load ReaScript), and run both.
+3. In the editor, add rules with **+**, then tick Settings › Startup so
+   the engine starts with REAPER. Moving from SWS? Settings › SWS imports
+   its rules and switches it off.
+
 Status: **phase 4**. Everything SWS Auto Color/Icon/Layout does works,
 rules are edited in the editor window, and Settings › SWS imports SWS's
 rules and switches SWS's own Auto Color off. Polish comes in phase 5;
