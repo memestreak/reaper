@@ -10,6 +10,7 @@ From the repository root:  uv run scripts/eminor_mcp_bridge/mcp/test_server.py
 import os
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -20,18 +21,28 @@ def main():
     folder = Path(tempfile.mkdtemp(prefix="eminor_mcp_bridge_"))
     os.environ["EMINOR_MCP_BRIDGE_FOLDER"] = str(folder)
     import server
+    server.PICKUP_TIMEOUT_SECONDS = 1
     server.RESPONSE_TIMEOUT_SECONDS = 3
+
+    def requests_left() -> list[str]:
+        return [p.name for p in folder.glob("request-*")]
 
     # No running.json yet: a clear message, and no request left behind.
     result = server.reaper_project_summary()
     assert "not running" in result, result
-    assert not (folder / "request.lua").exists()
+    assert not requests_left()
+
+    # An older bridge (one shared request file) is refused.
+    (folder / "running.json").write_text('{"version": 1}')
+    result = server.reaper_run_lua("return 1")
+    assert "older version" in result, result
+    assert not requests_left()
 
     # running.json but nobody polling: times out and cleans up.
-    (folder / "running.json").write_text("{}")
+    (folder / "running.json").write_text('{"version": 2}')
     result = server.reaper_run_lua("return 1")
     assert "did not pick up" in result, result
-    assert not (folder / "request.lua").exists()
+    assert not requests_left()
 
     bridge = subprocess.Popen(["lua", str(FAKE_BRIDGE), str(folder)])
     try:
@@ -55,8 +66,19 @@ def main():
         notes = server.reaper_run_lua('return bridge.read_midi("Piano")')
         assert '"pitch": 61' in notes, notes
 
-        result = server.reaper_run_lua('bridge.find_track("Bass")', undo_label="x")
+        result = server.reaper_run_lua(
+            'bridge.find_track("Bass")', undo_label="x"
+        )
         assert result.startswith("ERROR:") and "Drums, Piano" in result, result
+
+        # Many calls at once, as from several clients: each gets its own
+        # answer.
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            answers = list(pool.map(
+                lambda n: server.reaper_run_lua(f"return {n} * 10"),
+                range(16),
+            ))
+        assert answers == [str(n * 10) for n in range(16)], answers
 
         leftovers = sorted(p.name for p in folder.iterdir())
         assert leftovers == ["running.json"], leftovers

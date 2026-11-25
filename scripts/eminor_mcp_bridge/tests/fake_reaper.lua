@@ -37,6 +37,17 @@ function M.new(track_names)
     return state.clock
   end
   function r.GetPlayState() return state.play_state end
+  -- Like REAPER's: the file at `index` in `folder`, or nil past the end.
+  -- index -1 refreshes REAPER's cached listing; here every call reads
+  -- the folder afresh.
+  function r.EnumerateFiles(folder, index)
+    if index < 0 then return nil end
+    local names = {}
+    local listing = io.popen('ls -1 "' .. folder .. '" 2>/dev/null')
+    for name in listing:lines() do names[#names + 1] = name end
+    listing:close()
+    return names[index + 1]
+  end
   function r.Undo_BeginBlock2() state.undo_open = state.undo_open + 1 end
   function r.Undo_EndBlock2(_, label)
     state.undo_open = state.undo_open - 1
