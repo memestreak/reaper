@@ -62,8 +62,10 @@ write a four-bar chord progression in C# minor on the Piano track."
 ## Toolbar icons
 
 `toolbar_icons/` has three icons for the bridge's toolbar button, each
-with normal, hover and on frames: `jme_toolbar_mcp_bridge_arch.png`,
-`jme_toolbar_mcp_bridge_spark.png` and `jme_toolbar_mcp_bridge_label.png`.
+with normal, hover and on frames:
+`eminor_toolbar_mcp_bridge_arch.png`,
+`eminor_toolbar_mcp_bridge_spark.png` and
+`eminor_toolbar_mcp_bridge_label.png`.
 Copy the folder's contents, including `150/` and `200/` for high-DPI
 screens, into `<REAPER resource folder>/Data/toolbar_icons/`, then choose
 one for the button. The icon turns blue while the bridge is on.
