@@ -1,13 +1,16 @@
 -- lib/helpers.lua
 --
 -- The `bridge` table that request scripts can call. It covers the jobs
--- that take many API calls to get right (finding a track, writing MIDI,
--- changing the time signature), so most requests stay a few lines long.
+-- that take many API calls to get right (finding a track, changing the
+-- time signature, and reading and writing MIDI, in lib/midi.lua), so most
+-- requests stay a few lines long.
 -- Scripts can still call reaper.* directly for anything else.
 --
 -- Conventions: bars and tracks count from 1, as REAPER shows them. Note
 -- times and lengths are in quarter notes. Functions raise an error with a
 -- plain message when given something they cannot use.
+
+local midi = require("lib.midi")
 
 local M = {}
 
@@ -56,6 +59,44 @@ function M.new(r)
     error(string.format('%s "%s". Tracks: %s', problem, ref, table.concat(names, ", ")), 0)
   end
 
+  local function track_number(track)
+    return math.tointeger(r.GetMediaTrackInfo_Value(track, "IP_TRACKNUMBER"))
+  end
+
+  -- What the user has selected, and what the MIDI editor shows, so
+  -- "the selected item" and "what I have open" can be found.
+  local function selection_summary()
+    local selected = { tracks = {}, items = {}, midi_editor = nil }
+    for i = 0, r.CountSelectedTracks(0) - 1 do
+      local track = r.GetSelectedTrack(0, i)
+      selected.tracks[#selected.tracks + 1] = { number = track_number(track), name = track_name(track) }
+    end
+    local function describe(item)
+      local take = r.GetActiveTake(item)
+      local track = r.GetMediaItem_Track(item)
+      local start = r.GetMediaItemInfo_Value(item, "D_POSITION")
+      local beats, measures = r.TimeMap2_timeToBeats(0, start)
+      local name = ""
+      if take then _, name = r.GetSetMediaItemTakeInfo_String(take, "P_NAME", "", false) end
+      return {
+        track = track_name(track),
+        track_number = track_number(track),
+        name = name,
+        midi = take ~= nil and r.TakeIsMIDI(take),
+        start = string.format("%d.%g", measures + 1, math.floor((beats + 1) * 1e6 + 0.5) / 1e6),
+        start_seconds = start,
+        length_seconds = r.GetMediaItemInfo_Value(item, "D_LENGTH"),
+      }
+    end
+    for i = 0, r.CountSelectedMediaItems(0) - 1 do
+      selected.items[#selected.items + 1] = describe(r.GetSelectedMediaItem(0, i))
+    end
+    local editor = r.MIDIEditor_GetActive()
+    local take = editor and r.MIDIEditor_GetTake(editor)
+    if take then selected.midi_editor = describe(r.GetMediaItemTake_Item(take)) end
+    return selected
+  end
+
   -- A plain-table description of the project, for deciding what to do.
   function bridge.project_summary()
     local cursor = r.GetCursorPosition()
@@ -88,6 +129,8 @@ function M.new(r)
         muted = r.GetMediaTrackInfo_Value(track, "B_MUTE") == 1,
       }
     end
+
+    summary.selected = selection_summary()
 
     local _, marker_count, region_count = r.CountProjectMarkers(0)
     for i = 0, marker_count + region_count - 1 do
@@ -133,117 +176,7 @@ function M.new(r)
              time_signature = string.format("%d/%d", numerator, denominator) }
   end
 
-  local function check_note(note, i)
-    local function need(field, low, high)
-      local value = note[field]
-      if type(value) ~= "number" or value < low or (high and value > high) then
-        error(string.format("note %d: %s is %s", i, field, tostring(value)), 0)
-      end
-    end
-    need("pitch", 0, 127)
-    need("start", 0)
-    need("length", 0)
-    if note.length == 0 then error(string.format("note %d: length is 0", i), 0) end
-  end
-
-  -- Creates a MIDI item on `track_ref` (see find_track) and fills it.
-  --
-  -- spec = {
-  --   bar = 1,            -- bar the item starts on (default 1)
-  --   bars = 4,           -- item length in bars (default: just fits the notes)
-  --   name = "Chords",    -- item name (optional)
-  --   notes = {           -- times in quarter notes from the item's start
-  --     { pitch = 61, start = 0, length = 5, velocity = 90, channel = 1 },
-  --   },
-  -- }
-  -- velocity defaults to 96 and channel to 1 (channels are 1-16).
-  function bridge.insert_midi(track_ref, spec)
-    local track = bridge.find_track(track_ref)
-    local notes = spec.notes or {}
-    for i, note in ipairs(notes) do check_note(note, i) end
-
-    local bar = spec.bar or 1
-    local start_seconds, start_qn = bar_start(bar)
-    local end_qn
-    if spec.bars then
-      local _, qn = bar_start(bar + spec.bars)
-      end_qn = qn
-    else
-      end_qn = start_qn
-      for _, note in ipairs(notes) do
-        end_qn = math.max(end_qn, start_qn + note.start + note.length)
-      end
-    end
-    if end_qn <= start_qn then error("the item would be empty: give bars or notes", 0) end
-    local end_seconds = r.TimeMap2_QNToTime(0, end_qn)
-
-    local item = r.CreateNewMIDIItemInProj(track, start_seconds, end_seconds, false)
-    local take = r.GetActiveTake(item)
-    if spec.name then
-      r.GetSetMediaItemTakeInfo_String(take, "P_NAME", spec.name, true)
-    end
-
-    for _, note in ipairs(notes) do
-      local note_start = start_qn + note.start
-      local start_ppq = r.MIDI_GetPPQPosFromProjQN(take, note_start)
-      local end_ppq = r.MIDI_GetPPQPosFromProjQN(take, note_start + note.length)
-      local channel = (note.channel or 1) - 1
-      local velocity = math.floor(note.velocity or 96)
-      r.MIDI_InsertNote(take, false, false, start_ppq, end_ppq,
-                        channel, math.floor(note.pitch), velocity, true)
-    end
-    r.MIDI_Sort(take)
-    r.UpdateItemInProject(item)
-
-    return {
-      track = track_name(track),
-      bar = bar,
-      start_seconds = start_seconds,
-      end_seconds = end_seconds,
-      note_count = #notes,
-    }
-  end
-
-  -- Reads every MIDI item on a track. Note times are in quarter notes from
-  -- each item's start, the same shape insert_midi takes.
-  function bridge.read_midi(track_ref)
-    local track = bridge.find_track(track_ref)
-    local items = {}
-    for i = 0, r.CountTrackMediaItems(track) - 1 do
-      local item = r.GetTrackMediaItem(track, i)
-      local take = r.GetActiveTake(item)
-      if take and r.TakeIsMIDI(take) then
-        local start_seconds = r.GetMediaItemInfo_Value(item, "D_POSITION")
-        local length_seconds = r.GetMediaItemInfo_Value(item, "D_LENGTH")
-        local start_qn = r.TimeMap2_timeToQN(0, start_seconds)
-        local _, take_name = r.GetSetMediaItemTakeInfo_String(take, "P_NAME", "", false)
-        local notes = {}
-        local _, note_count = r.MIDI_CountEvts(take)
-        for n = 0, note_count - 1 do
-          local _, _, muted, start_ppq, end_ppq, channel, pitch, velocity =
-            r.MIDI_GetNote(take, n)
-          local note_start = r.MIDI_GetProjQNFromPPQPos(take, start_ppq)
-          local note_end = r.MIDI_GetProjQNFromPPQPos(take, end_ppq)
-          notes[#notes + 1] = {
-            pitch = pitch,
-            start = note_start - start_qn,
-            length = note_end - note_start,
-            velocity = velocity,
-            channel = channel + 1,
-            muted = muted or nil,
-          }
-        end
-        items[#items + 1] = {
-          name = take_name,
-          start_seconds = start_seconds,
-          end_seconds = start_seconds + length_seconds,
-          start_qn = start_qn,
-          notes = notes,
-        }
-      end
-    end
-    return items
-  end
+  midi.add(bridge, r)
 
   return bridge
 end

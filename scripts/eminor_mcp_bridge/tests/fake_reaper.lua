@@ -21,9 +21,12 @@ function M.new(track_names)
     undo = {},              -- labels of finished undo blocks
     undo_open = 0,
     ui_refresh = 0,
+    selected_tracks = {},   -- tracks, in order
+    selected_items = {},    -- items, in order
+    editor_take = nil,      -- the take "open in the MIDI editor"
   }
   for i, name in ipairs(track_names or {}) do
-    state.tracks[i] = { name = name, items = {}, fx = {} }
+    state.tracks[i] = { name = name, items = {}, fx = {}, number = i }
   end
 
   local r = { fake = state }
@@ -61,7 +64,18 @@ function M.new(track_names)
   function r.CountTracks() return #state.tracks end
   function r.GetTrack(_, index) return state.tracks[index + 1] end
   function r.GetSetMediaTrackInfo_String(track) return true, track.name end
-  function r.GetMediaTrackInfo_Value() return 0 end
+  function r.GetMediaTrackInfo_Value(track, key)
+    if key == "IP_TRACKNUMBER" then return track.number + 0.0 end
+    return 0
+  end
+  function r.CountSelectedTracks() return #state.selected_tracks end
+  function r.GetSelectedTrack(_, index) return state.selected_tracks[index + 1] end
+  function r.CountSelectedMediaItems() return #state.selected_items end
+  function r.GetSelectedMediaItem(_, index) return state.selected_items[index + 1] end
+  function r.MIDIEditor_GetActive() return state.editor_take and "editor" or nil end
+  function r.MIDIEditor_GetTake() return state.editor_take end
+  function r.GetMediaItemTake_Item(take) return take.item end
+  function r.GetMediaItem_Track(item) return item.track end
   function r.TrackFX_GetCount(track) return #track.fx end
   function r.TrackFX_GetFXName(track, slot) return true, track.fx[slot + 1] end
   function r.TrackFX_GetInstrument(track) return #track.fx > 0 and 0 or -1 end
@@ -82,6 +96,13 @@ function M.new(track_names)
   end
   function r.TimeMap2_QNToTime(_, qn) return qn_to_seconds(qn) end
   function r.TimeMap2_timeToQN(_, seconds) return seconds_to_qn(seconds) end
+  -- Beats into the measure, measure (from 0), and more REAPER returns.
+  function r.TimeMap2_timeToBeats(_, seconds)
+    local qn = seconds_to_qn(seconds)
+    local measure = math.floor(qn / qn_per_bar() + 1e-9)
+    local beats = (qn - measure * qn_per_bar()) * state.denominator / 4
+    return beats, measure, state.numerator, qn, state.denominator
+  end
 
   function r.CountTempoTimeSigMarkers() return #state.tempo_markers end
   function r.GetTempoTimeSigMarker(_, index)
@@ -99,8 +120,8 @@ function M.new(track_names)
   end
 
   function r.CreateNewMIDIItemInProj(track, start_seconds, end_seconds)
-    local item = { start = start_seconds, length = end_seconds - start_seconds }
-    item.take = { item = item, name = "", notes = {} }
+    local item = { start = start_seconds, length = end_seconds - start_seconds, track = track }
+    item.take = { item = item, name = "", notes = {}, ccs = {} }
     track.items[#track.items + 1] = item
     return item
   end
@@ -126,13 +147,40 @@ function M.new(track_names)
     }
     return true
   end
+  function r.MIDI_SetNote(take, index, selected, muted, start_ppq, end_ppq, channel, pitch, velocity)
+    local note = take.notes[index + 1]
+    local function keep(new, old) if new == nil then return old end return new end
+    note.selected, note.muted = keep(selected, note.selected), keep(muted, note.muted)
+    note.start_ppq, note.end_ppq = keep(start_ppq, note.start_ppq), keep(end_ppq, note.end_ppq)
+    note.channel, note.pitch = keep(channel, note.channel), keep(pitch, note.pitch)
+    note.velocity = keep(velocity, note.velocity)
+    return true
+  end
+  function r.MIDI_DeleteNote(take, index) table.remove(take.notes, index + 1) return true end
+  function r.MIDI_InsertCC(take, selected, muted, ppq, status, channel, msg2, msg3)
+    take.ccs[#take.ccs + 1] = { selected = selected, muted = muted, ppq = ppq,
+      status = status, channel = channel, msg2 = msg2, msg3 = msg3 }
+    return true
+  end
+  function r.MIDI_GetCC(take, index)
+    local cc = take.ccs[index + 1]
+    return true, cc.selected, cc.muted, cc.ppq, cc.status, cc.channel, cc.msg2, cc.msg3
+  end
+  function r.MIDI_DeleteCC(take, index) table.remove(take.ccs, index + 1) return true end
+  -- Moves only the item's end here: events keep their project positions.
+  function r.MIDI_SetItemExtents(item, start_qn, end_qn)
+    assert(math.abs(qn_to_seconds(start_qn) - item.start) < 1e-9, "the fake only moves the end")
+    item.length = qn_to_seconds(end_qn) - item.start
+    return true
+  end
   function r.MIDI_Sort(take)
     table.sort(take.notes, function(a, b)
       if a.start_ppq ~= b.start_ppq then return a.start_ppq < b.start_ppq end
       return a.pitch < b.pitch
     end)
+    table.sort(take.ccs, function(a, b) return a.ppq < b.ppq end)
   end
-  function r.MIDI_CountEvts(take) return true, #take.notes, 0, 0 end
+  function r.MIDI_CountEvts(take) return true, #take.notes, #take.ccs, 0 end
   function r.MIDI_GetNote(take, index)
     local note = take.notes[index + 1]
     return true, note.selected, note.muted, note.start_ppq, note.end_ppq,

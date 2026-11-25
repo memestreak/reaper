@@ -15,7 +15,7 @@ local json = require("lib.json")
 local M = {}
 
 -- 2: one file per request (request-<time>-<id>.lua), queued by name.
-M.VERSION = 2
+M.VERSION = 3
 
 local POLL_SECONDS = 0.1
 

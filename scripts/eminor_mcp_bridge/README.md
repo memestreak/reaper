@@ -53,11 +53,36 @@ write a four-bar chord progression in C# minor on the Piano track."
 ## The tools
 
 - `reaper_project_summary` describes the project: tempo, time signature,
-  tracks and their FX, markers and regions.
+  tracks and their FX, markers and regions, and what is selected or open
+  in the MIDI editor.
+- `reaper_read_midi` reads notes, CCs, pitch bend and other MIDI events
+  from a track, the selected items, or the MIDI editor, optionally for a
+  range of bars.
+- `reaper_write_midi` writes notes and events: as a new item, added to an
+  existing item, or replacing a range of bars. Pitches can be numbers or
+  names such as "C#4".
+- `reaper_screenshot` shows the client a REAPER window: the main window,
+  the frontmost one, all of them, or one by title ("MIDI editor",
+  "Pianoteq"). macOS only. See below.
 - `reaper_run_lua` runs a Lua script in REAPER and returns what it
-  returns. Scripts can use all of `reaper.*`, plus a small `bridge`
-  library (`lib/helpers.lua`) for the fiddly jobs: `find_track`,
-  `set_time_signature`, `insert_midi`, `read_midi`.
+  returns, for everything else. Scripts can use all of `reaper.*`, plus
+  a small `bridge` library (`lib/helpers.lua`, `lib/midi.lua`) for the
+  fiddly jobs: `find_track`, `set_time_signature`, `read_midi`,
+  `write_midi`.
+
+In the MIDI tools, every `start` is in quarter notes from the start of
+the bar it is given with, so what `reaper_read_midi` returns for some
+bars can be changed and written back over them.
+
+### Screenshots
+
+`reaper_screenshot` captures with macOS's own `screencapture`, outside
+REAPER, so it never slows REAPER down. It captures the window even when
+other windows cover it, but not when it is minimized. The first time,
+macOS asks for screen recording permission for the app that runs the
+server (your MCP client, or the terminal it was started from), and that
+app may need restarting afterwards. The full-size PNGs go to a temporary
+folder, which keeps the last 20.
 
 ## Toolbar icons
 
