@@ -10,9 +10,12 @@ Start it with:  uv run server.py
 It talks to REAPER through files in the bridge folder, where the
 eminor_mcp_bridge.lua action is polling:
 
-    request.lua            written here, read and deleted by REAPER
-    response-<id>.json     written by REAPER, read and deleted here
-    running.json           exists while the bridge action is running
+    request-<time>-<id>.lua  written here, read and deleted by REAPER
+    response-<id>.json       written by REAPER, read and deleted here
+    running.json             exists while the bridge action is running
+
+Every request gets its own file, and REAPER answers them oldest first, so
+several clients (or several calls from one client) can share the bridge.
 
 Set EMINOR_MCP_BRIDGE_FOLDER to use a folder other than the default
 <REAPER resource folder>/Data/eminor_mcp_bridge.
@@ -21,20 +24,21 @@ Set EMINOR_MCP_BRIDGE_FOLDER to use a folder other than the default
 import json
 import os
 import sys
-import threading
 import time
 import uuid
 from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 
-RESPONSE_TIMEOUT_SECONDS = 10   # the bridge stops a script after 5
+# Waiting in the queue, behind other clients' scripts (5 seconds at most
+# each), before REAPER takes the request.
+PICKUP_TIMEOUT_SECONDS = 15
+# After pickup. The bridge stops a script after 5.
+RESPONSE_TIMEOUT_SECONDS = 10
 POLL_SECONDS = 0.02
+BRIDGE_VERSION = 2   # lib/loop.lua's M.VERSION this server speaks to
 
 mcp = MCPServer("reaper")
-
-# REAPER answers one request at a time, so only one may be waiting.
-_one_at_a_time = threading.Lock()
 
 
 class BridgeError(Exception):
@@ -55,47 +59,107 @@ def bridge_folder() -> Path:
     return resources / "Data" / "eminor_mcp_bridge"
 
 
-def send_request(code: str, undo_label: str | None = None) -> dict:
-    """Runs `code` in REAPER and returns the bridge's response."""
-    folder = bridge_folder()
-    if not (folder / "running.json").exists():
+def check_running(folder: Path) -> None:
+    """Raises BridgeError unless a bridge this server can talk to is up.
+
+    Args:
+        folder: The bridge folder.
+
+    Raises:
+        BridgeError: If the bridge is not running, or is an older version.
+    """
+    try:
+        running = json.loads((folder / "running.json").read_text())
+    except FileNotFoundError:
         raise BridgeError(
             "The eminor MCP Bridge is not running. In REAPER, run the action "
             "'Script: eminor_mcp_bridge.lua' and try again."
+        ) from None
+    except json.JSONDecodeError:
+        running = {}   # caught mid-write; the version check below decides
+    if running and running.get("version", 1) < BRIDGE_VERSION:
+        raise BridgeError(
+            "The eminor MCP Bridge running in REAPER is an older version. "
+            "Run the action 'Script: eminor_mcp_bridge.lua' twice (off, then "
+            "on) to load the new one, and try again."
         )
+
+
+def wait_for_response(request_path: Path, response_path: Path) -> str:
+    """Waits for REAPER to take the request and answer it.
+
+    Args:
+        request_path: The request file, which REAPER deletes on pickup.
+        response_path: The response file REAPER writes.
+
+    Returns:
+        The response file's text.
+
+    Raises:
+        BridgeError: If REAPER does not pick up or answer in time.
+    """
+    picked_up = False
+    deadline = time.monotonic() + PICKUP_TIMEOUT_SECONDS
+    while not response_path.exists():
+        if not picked_up and not request_path.exists():
+            picked_up = True
+            deadline = time.monotonic() + RESPONSE_TIMEOUT_SECONDS
+        if time.monotonic() > deadline:
+            if picked_up:
+                raise BridgeError(
+                    "REAPER took the request but did not answer in time. "
+                    "It may be showing a dialog, or the script is slow."
+                )
+            try:
+                request_path.unlink()
+            except FileNotFoundError:
+                # Taken just now: give it the full time to answer.
+                picked_up = True
+                deadline = time.monotonic() + RESPONSE_TIMEOUT_SECONDS
+                continue
+            raise BridgeError(
+                "REAPER did not pick up the request. Check that REAPER is "
+                "open and the eminor_mcp_bridge.lua action is still running."
+            )
+        time.sleep(POLL_SECONDS)
+    text = response_path.read_text(encoding="utf-8", errors="replace")
+    response_path.unlink(missing_ok=True)
+    return text
+
+
+def send_request(code: str, undo_label: str | None = None) -> dict:
+    """Runs `code` in REAPER and returns the bridge's response.
+
+    Args:
+        code: Lua source to run.
+        undo_label: Undo point name, for scripts that change the project.
+
+    Returns:
+        The bridge's response: id, ok, and result or error, plus output.
+
+    Raises:
+        BridgeError: If the bridge is not available or does not answer.
+    """
+    folder = bridge_folder()
+    check_running(folder)
 
     request_id = uuid.uuid4().hex[:12]
     header = f"--@id {request_id}\n"
     if undo_label:
         header += f"--@undo {' '.join(undo_label.split())}\n"
 
-    request_path = folder / "request.lua"
-    response_path = folder / f"response-{request_id}.json"
-    temporary_path = folder / f"request-{request_id}.tmp"
+    # The zero-padded time first, so REAPER sorting the names takes
+    # requests in the order they were sent.
+    stem = f"request-{time.time_ns():020d}-{request_id}"
+    request_path = folder / f"{stem}.lua"
+    temporary_path = folder / f"{stem}.tmp"
 
-    with _one_at_a_time:
-        # Write under another name first, so REAPER never reads half a file.
-        temporary_path.write_text(header + code, encoding="utf-8")
-        os.replace(temporary_path, request_path)
-
-        deadline = time.monotonic() + RESPONSE_TIMEOUT_SECONDS
-        while not response_path.exists():
-            if time.monotonic() > deadline:
-                picked_up = not request_path.exists()
-                request_path.unlink(missing_ok=True)
-                if picked_up:
-                    raise BridgeError(
-                        "REAPER took the request but did not answer in time. "
-                        "It may be showing a dialog, or the script is slow."
-                    )
-                raise BridgeError(
-                    "REAPER did not pick up the request. Check that REAPER is "
-                    "open and the eminor_mcp_bridge.lua action is still running."
-                )
-            time.sleep(POLL_SECONDS)
-
-        text = response_path.read_text(encoding="utf-8", errors="replace")
-        response_path.unlink(missing_ok=True)
+    # Write under another name first, so REAPER never reads half a file.
+    temporary_path.write_text(header + code, encoding="utf-8")
+    os.replace(temporary_path, request_path)
+    text = wait_for_response(
+        request_path, folder / f"response-{request_id}.json"
+    )
     return json.loads(text)
 
 

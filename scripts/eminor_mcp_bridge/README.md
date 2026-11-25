@@ -76,7 +76,10 @@ one for the button. The icon turns blue while the bridge is on.
   takes it back.
 - Nothing runs while REAPER is recording.
 - A script that runs longer than 5 seconds is stopped.
-- When idle, the action costs one file check every 100 ms.
+- When idle, the action costs one folder listing every 100 ms.
+- Several MCP clients can use the bridge at once, for example Claude
+  Code and the Claude desktop app. Each request gets its own file, and
+  REAPER runs them one at a time, oldest first.
 
 ## Security
 

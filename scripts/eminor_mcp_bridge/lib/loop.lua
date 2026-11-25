@@ -1,10 +1,11 @@
 -- lib/loop.lua
 --
 -- The bridge's background loop. A few times a second it looks for
--- request.lua in the bridge folder, runs it, and writes the answer to
--- response-<id>.json.
+-- request-*.lua files in the bridge folder, runs the oldest, and writes
+-- the answer to response-<id>.json. While requests are queued it takes
+-- the next one on the following defer tick.
 --
--- Cost when idle: one failed file open per poll. Nothing runs while
+-- Cost when idle: one folder listing per poll. Nothing runs while
 -- REAPER is recording (see runner.lua).
 
 local runner = require("lib.runner")
@@ -13,7 +14,8 @@ local json = require("lib.json")
 
 local M = {}
 
-M.VERSION = 1
+-- 2: one file per request (request-<time>-<id>.lua), queued by name.
+M.VERSION = 2
 
 local POLL_SECONDS = 0.1
 
@@ -35,12 +37,33 @@ local function write_file_whole(path, text)
   assert(os.rename(path .. ".tmp", path))
 end
 
--- Looks for a request in `folder` and answers it. Returns true if one
--- was found. `r` is the reaper API table.
+-- The waiting requests in `folder`, oldest first. Each client writes its
+-- own request-<arrival time>-<id>.lua, so several clients can queue
+-- requests at once and sorting the names gives their order. Clients
+-- write under a .tmp name and rename, so a half-written request is never
+-- listed.
+function M.pending(folder, r)
+  r.EnumerateFiles(folder, -1)  -- drop REAPER's cached listing
+  local names = {}
+  local index = 0
+  while true do
+    local name = r.EnumerateFiles(folder, index)
+    if not name then break end
+    if name:match("^request%-.+%.lua$") then names[#names + 1] = name end
+    index = index + 1
+  end
+  table.sort(names)
+  return names
+end
+
+-- Answers the oldest waiting request in `folder`. Returns true if there
+-- was one. `r` is the reaper API table.
 function M.poll_once(folder, r)
-  local request_path = folder .. "request.lua"
+  local name = M.pending(folder, r)[1]
+  if not name then return false end
+  local request_path = folder .. name
   local file = io.open(request_path, "rb")
-  if not file then return false end
+  if not file then return false end  -- its client gave up and removed it
   local text = file:read("a")
   file:close()
   os.remove(request_path)
@@ -88,11 +111,12 @@ function M.run()
   local function tick()
     local now = reaper.time_precise()
     if now >= next_poll then
-      next_poll = now + POLL_SECONDS
-      local ok, problem = pcall(M.poll_once, folder, reaper)
+      local ok, answered = pcall(M.poll_once, folder, reaper)
       if not ok then
-        reaper.ShowConsoleMsg("eminor MCP Bridge: " .. tostring(problem) .. "\n")
+        reaper.ShowConsoleMsg("eminor MCP Bridge: " .. tostring(answered) .. "\n")
       end
+      -- After answering one, check straight away for more in the queue.
+      next_poll = (ok and answered) and now or now + POLL_SECONDS
     end
     reaper.defer(tick)
   end
