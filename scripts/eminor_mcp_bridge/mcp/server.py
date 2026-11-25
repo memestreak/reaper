@@ -1,6 +1,9 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["mcp>=2,<3"]
+# dependencies = [
+#     "mcp>=2,<3",
+#     "pyobjc-framework-Quartz; sys_platform == 'darwin'",
+# ]
 # ///
 """MCP server for the eminor MCP Bridge.
 
@@ -27,8 +30,13 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from typing import Annotated, Literal, NotRequired, TypedDict
 
-from mcp.server.mcpserver import MCPServer
+from pydantic import Field
+
+from mcp.server.mcpserver import Image, MCPServer
+
+import screenshot
 
 # Waiting in the queue, behind other clients' scripts (5 seconds at most
 # each), before REAPER takes the request.
@@ -36,7 +44,7 @@ PICKUP_TIMEOUT_SECONDS = 15
 # After pickup. The bridge stops a script after 5.
 RESPONSE_TIMEOUT_SECONDS = 10
 POLL_SECONDS = 0.02
-BRIDGE_VERSION = 2   # lib/loop.lua's M.VERSION this server speaks to
+BRIDGE_VERSION = 3   # lib/loop.lua's M.VERSION this server speaks to
 
 mcp = MCPServer("reaper")
 
@@ -167,7 +175,7 @@ def as_tool_result(response: dict) -> str:
     """The response as text for the model: the result, or the error."""
     parts = []
     if response.get("ok"):
-        parts.append(json.dumps(response.get("result"), indent=2))
+        parts.append(json.dumps(response.get("result"), indent=2, ensure_ascii=False))
     else:
         parts.append("ERROR: " + str(response.get("error")))
     if response.get("output"):
@@ -182,12 +190,188 @@ def run(code: str, undo_label: str | None = None) -> str:
         return "ERROR: " + str(problem)
 
 
+def to_lua(value) -> str:
+    """`value` (from JSON-like Python) as a Lua literal."""
+    if value is None:
+        return "nil"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, str):
+        return _lua_string(value)
+    if isinstance(value, dict):
+        fields = ", ".join(
+            f"[{_lua_string(str(k))}] = {to_lua(v)}"
+            for k, v in value.items() if v is not None
+        )
+        return "{" + fields + "}"
+    if isinstance(value, (list, tuple)):
+        return "{" + ", ".join(to_lua(v) for v in value) + "}"
+    raise TypeError(f"cannot pass {type(value).__name__} to Lua")
+
+
+def _lua_string(text: str) -> str:
+    """`text` as a quoted Lua string. UTF-8 passes through as is."""
+    escaped = []
+    for char in text:
+        if char in ('"', "\\"):
+            escaped.append("\\" + char)
+        elif ord(char) < 32 or ord(char) == 127:
+            escaped.append(f"\\{ord(char):03d}")
+        else:
+            escaped.append(char)
+    return '"' + "".join(escaped) + '"'
+
+
 @mcp.tool()
 def reaper_project_summary() -> str:
     """Describes the open REAPER project: tempo, time signature, cursor,
     tracks (number, name, FX, whether it has an instrument, item count),
-    markers and regions. Read-only. Call this before changing anything."""
+    markers and regions, and `selected`: the selected tracks and items
+    and the item open in the MIDI editor. Read-only. Call this before
+    changing anything."""
     return run("return bridge.project_summary()")
+
+
+def described(text: str):
+    """A field description, which the client shows the model."""
+    return Field(description=text)
+
+
+START = described("Quarter notes from the start of `bar`.")
+CHANNEL = described("1-16, default 1.")
+PITCH_TYPE = int | str
+
+
+class Note(TypedDict):
+    pitch: Annotated[PITCH_TYPE, described(
+        'MIDI number (60 is middle C) or a name: "C4", "C#4", "Db4".')]
+    start: Annotated[float, START]
+    length: Annotated[float, described("In quarter notes.")]
+    velocity: NotRequired[Annotated[int, described("1-127, default 96.")]]
+    channel: NotRequired[Annotated[int, CHANNEL]]
+
+
+EventType = Literal[
+    "cc", "pitch_bend", "program", "channel_pressure", "poly_aftertouch"
+]
+
+
+class MidiEvent(TypedDict):
+    type: NotRequired[Annotated[EventType, described('Default "cc".')]]
+    start: Annotated[float, START]
+    value: Annotated[int, described(
+        "0-127; for pitch_bend -8192 to 8191, with 0 the centre.")]
+    cc: NotRequired[Annotated[int, described(
+        'The controller, for type "cc": 1 mod wheel, 7 volume, '
+        "11 expression, 64 sustain.")]]
+    pitch: NotRequired[Annotated[PITCH_TYPE, described(
+        'The note, for type "poly_aftertouch".')]]
+    channel: NotRequired[Annotated[int, CHANNEL]]
+
+
+@mcp.tool()
+def reaper_read_midi(
+    track: int | str | None = None,
+    item: Literal["selected", "editor"] | None = None,
+    from_bar: int | None = None,
+    to_bar: int | None = None,
+    include_events: bool = True,
+) -> str:
+    """Reads MIDI notes and events (CCs, pitch bend, program changes,
+    pressure) from REAPER. Read-only.
+
+    Say where: `track` (number, or name: exact, else a unique partial
+    match), or `item` = "selected" (the selected MIDI items) or "editor"
+    (the take open in the MIDI editor). `from_bar`/`to_bar` (inclusive)
+    limit it to those bars; use them on long tracks.
+
+    Returns a list of items. In each, every note's and event's `start` is
+    in quarter notes from the start of the item's `bar` (from_bar if given,
+    else the bar the item starts in): the same convention
+    reaper_write_midi uses, so what you read can be edited and written back
+    with mode "replace". Notes also have `name` ("C#4") and `at`, the
+    bar.beat position ("5.2.5" is halfway through beat 2 of bar 5).
+    """
+    spec = {
+        "track": track, "item": item, "from_bar": from_bar,
+        "to_bar": to_bar, "events": include_events,
+    }
+    return run(f"return bridge.read_midi({to_lua(spec)})")
+
+
+@mcp.tool()
+def reaper_write_midi(
+    mode: Literal["new", "add", "replace"],
+    undo_label: str,
+    track: int | str | None = None,
+    item: Literal["selected", "editor"] | None = None,
+    bar: int = 1,
+    bars: int | None = None,
+    notes: list[Note] | None = None,
+    events: list[MidiEvent] | None = None,
+    name: str | None = None,
+) -> str:
+    """Writes MIDI notes and events into REAPER, as one undo point
+    named `undo_label` (e.g. "Add bass line").
+
+    mode:
+      "new": a new item on `track` starting at `bar`, `bars` long (default:
+        just fits what is written). `name` names it.
+      "add": into the existing item at `bar`, keeping what is there.
+      "replace": clears bars `bar` to `bar + bars - 1` and writes there.
+        Notes ringing into the range from before are shortened to its
+        start. Events are cleared only on the lanes `events` writes (a CC
+        number, or pitch bend), so rewriting notes keeps the sustain pedal.
+        With no item there yet, one is made.
+    Items grow to fit what is written.
+
+    Say where: `track` (number or name), or `item` = "selected" (exactly one
+    selected MIDI item) or "editor" (the take open in the MIDI editor),
+    for "add" and "replace".
+
+    Times: every `start` is in quarter notes from the start of `bar`, and
+    lengths are in quarter notes, whatever the time signature (a 5/4 bar
+    is 5, a 6/8 bar is 3). Pitches are numbers or names (60 = "C4",
+    middle C).
+
+    Nothing is written if any note or event is invalid. Nothing runs
+    while REAPER is recording.
+    """
+    spec = {
+        "mode": mode, "track": track, "item": item, "bar": bar, "bars": bars,
+        "notes": notes or [], "events": events or [], "name": name,
+    }
+    return run(f"return bridge.write_midi({to_lua(spec)})", undo_label)
+
+
+@mcp.tool()
+def reaper_screenshot(
+    window: str = "main", max_size: int = 1600
+) -> list[Image | str]:
+    """Takes a screenshot of a REAPER window and shows it to you, for
+    debugging layouts, themes, scripts and plugin windows. macOS only.
+    Read-only: it does not bring windows forward or touch REAPER.
+
+    window: "main" (the main window, default), "front" (the frontmost
+    REAPER window), "all" (every REAPER window, up to 6 images), or part
+    of a window's title, ignoring case, e.g. "MIDI editor", "Mixer",
+    "Pianoteq". An unknown title lists the windows there are.
+
+    max_size: the longest side, in pixels, of the image you get. The
+    full-size PNG is saved, and its path is in the reply.
+    """
+    try:
+        chosen = screenshot.choose_windows(screenshot.reaper_windows(), window)
+        results: list[Image | str] = []
+        for each in chosen:
+            full, small = screenshot.capture(each, max(200, min(max_size, 4000)))
+            results.append(f"{each.describe()}, full size at {full}")
+            results.append(Image(path=small))
+        return results
+    except screenshot.ScreenshotError as problem:
+        return ["ERROR: " + str(problem)]
 
 
 @mcp.tool()
@@ -220,27 +404,17 @@ def reaper_run_lua(code: str, undo_label: str | None = None) -> str:
         Sets the time signature from that bar on. Tempo is kept unless bpm
         is given.
 
-    bridge.insert_midi(track_ref, {
-        bar = 1,          -- bar the new item starts on
-        bars = 4,         -- item length in bars (default: fits the notes)
-        name = "Chords",  -- optional item name
-        notes = {
-          {pitch=61, start=0, length=5, velocity=90, channel=1},
-        },
-    })
-        Creates a new MIDI item and fills it. `start` is quarter notes from
-        the item's start. Pitch 60 is middle C (C4 in REAPER's default
-        naming). velocity defaults to 96, channel to 1. Returns where the
-        item was placed.
-
-    bridge.read_midi(track_ref)
-        Every MIDI item on the track, with notes in the same shape.
+    bridge.read_midi(spec), bridge.write_midi(spec)
+        What reaper_read_midi and reaper_write_midi do, with the same
+        arguments as a table, e.g. bridge.write_midi({mode = "new",
+        track = "Piano", bar = 1, notes = {...}}). Prefer those tools for
+        MIDI; use these when a script needs MIDI along with other changes.
 
     Example, one bar of C# major in 5/4:
 
         bridge.set_time_signature(5, 4)
-        return bridge.insert_midi("Piano", {
-          bar = 1, bars = 1, name = "C#",
+        return bridge.write_midi({
+          mode = "new", track = "Piano", bar = 1, bars = 1, name = "C#",
           notes = {
             {pitch = 49, start = 0, length = 5},
             {pitch = 61, start = 0, length = 5},
