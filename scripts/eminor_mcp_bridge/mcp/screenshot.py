@@ -149,7 +149,10 @@ def capture(window: Window, max_size: int) -> tuple[Path, Path]:
         ScreenshotError: If macOS would not capture it.
     """
     folder = capture_folder()
-    stem = time.strftime("%Y%m%d-%H%M%S") + f"-{window.id}"
+    # Milliseconds too, so two captures of one window in a second both keep.
+    now = time.time()
+    stem = time.strftime("%Y%m%d-%H%M%S", time.localtime(now)) \
+        + f"-{int(now * 1000) % 1000:03d}-{window.id}"
     full = folder / f"{stem}.png"
     small = folder / f"{stem}.jpg"
     # -x: no camera sound. -o: no window shadow. -l: just this window.
