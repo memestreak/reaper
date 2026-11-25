@@ -82,7 +82,8 @@ function M.new(track_names)
   function r.CountTrackMediaItems(track) return #track.items end
   function r.GetTrackMediaItem(track, index) return track.items[index + 1] end
 
-  function r.GetCursorPosition() return 0 end
+  function r.GetCursorPosition() return state.cursor or 0 end
+  function r.SetEditCurPos(seconds) state.cursor = seconds end
   function r.GetProjectLength() return 0 end
   function r.CountProjectMarkers() return 0, 0, 0 end
 
@@ -120,6 +121,7 @@ function M.new(track_names)
   end
 
   function r.CreateNewMIDIItemInProj(track, start_seconds, end_seconds)
+    state.cursor = end_seconds   -- REAPER may move the edit cursor here
     local item = { start = start_seconds, length = end_seconds - start_seconds, track = track }
     item.take = { item = item, name = "", notes = {}, ccs = {} }
     track.items[#track.items + 1] = item

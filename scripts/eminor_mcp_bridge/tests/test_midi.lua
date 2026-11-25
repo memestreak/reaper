@@ -119,6 +119,13 @@ function T.replace_clears_only_the_range_and_shortens_ringing_notes()
   assert(#mod_values == 1 and mod_values[1] == 90)
 end
 
+function T.writing_leaves_the_edit_cursor_where_it_was()
+  local bridge, r = setup()
+  r.fake.cursor = 1.75
+  bridge.write_midi({ track = "Piano", bar = 3, bars = 1, notes = chord(0, 1, 60) })
+  assert(r.fake.cursor == 1.75)
+end
+
 function T.replace_with_nothing_there_makes_an_item()
   local bridge, r = setup()
   local result = bridge.write_midi({ track = 1, mode = "replace", bar = 5, bars = 1,

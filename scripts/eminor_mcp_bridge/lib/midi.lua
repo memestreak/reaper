@@ -447,6 +447,9 @@ function M.add(bridge, r)
     local range_end = spec.bars and bar_qn(bar + spec.bars) or origin
     local needed_end = math.max(range_end, origin + content_end(notes, events))
 
+    -- Making an item can move the edit cursor; put it back afterwards.
+    local cursor = r.GetCursorPosition()
+
     local item, track
     if mode ~= "new" then
       item, track = target_item(spec, origin, mode == "replace" and range_end or origin + 1e-6)
@@ -495,6 +498,9 @@ function M.add(bridge, r)
     end
     r.MIDI_Sort(take)
     r.UpdateItemInProject(item)
+    if r.GetCursorPosition() ~= cursor then
+      r.SetEditCurPos(cursor, false, false)
+    end
 
     local start_qn, end_qn = item_extent_qn(item)
     return {
