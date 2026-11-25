@@ -97,9 +97,11 @@ function M.add(bridge, r)
   end
 
   -- "5.1" for the first beat of bar 5, "5.2.5" halfway through beat 2.
+  -- Beats are cut (not rounded, which could give beat 5 of a 4/4 bar)
+  -- to hundredths, enough to read; `start` keeps the exact time.
   local function position(qn)
     local bar, beat = bar_and_beat(qn)
-    return string.format("%d.%g", bar, beat)
+    return string.format("%d.%g", bar, math.floor(beat * 100 + 1e-6) / 100)
   end
 
   local function track_name(track)
